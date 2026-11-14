@@ -229,7 +229,76 @@ footer p { margin: 0; }
 .sc-cfp b { font-family: var(--display); font-size: 16px; }
 @media (max-width: 820px) { .tg-top, .whatif { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { h1 { font-size: 32px; } .games { grid-template-columns: 1fr; } .odds-row, .odds-head { grid-template-columns: 96px minmax(0, 1fr) 44px 50px; } }
+
+/* ---------- phones and small tablets ---------- */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.jump { display: none; font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
+@media (pointer: coarse) {
+  button { min-height: 40px; padding: 8px 12px; font-size: 13px; }
+  .pick button { min-height: 44px; }
+  .seg button { min-height: 40px; }
+  .rules summary { padding: 14px 0; }
+  .pen input { height: 32px; }
+}
+@media (max-width: 820px) {
+  .jump { display: inline; }
+  /* race table -> one card per team */
+  #race-table, .cfp-table { min-width: 0; }
+  #race-table thead, .cfp-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  #race-table tbody, .cfp-table tbody { display: block; }
+  #race-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 16px; padding: 14px; border-bottom: 1px solid var(--line); }
+  #race-table tr:last-child { border-bottom: 0; }
+  #race-table td, .cfp-table td { display: block; padding: 0; border: 0; min-width: 0; }
+  #race-table td[colspan] { grid-column: 1 / -1; }
+  #race-table td:nth-child(2) { text-align: right; align-self: center; }
+  #race-table td:nth-child(3) { grid-column: 1 / -1; }
+  #race-table .team { min-width: 0; }
+  .pips { flex-wrap: wrap; }
+  .pip { flex: 1 1 58px; max-width: 84px; padding: 6px 0; }
+  .dist { min-width: 0; }
+  #race-table td[data-label]::before, .cfp-table td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 6px;
+    font: 600 10px var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  /* playoff table -> one card per team */
+  .cfp-table tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .cfp-table tr:last-child { border-bottom: 0; }
+  .cfp-table td:nth-child(1) { grid-column: span 2; align-self: center; }
+  .cfp-table td:nth-child(2) { text-align: right; }
+  .cfp-table td:nth-child(2) .route { width: 100%; }
+  .cfp-table td:nth-child(6) { grid-column: 1 / -1; font-size: 12px; }
+  .cfp-table td:nth-child(6)::before { display: inline !important; margin: 0 6px 0 0 !important; }
+  .cfp-table .team { min-width: 0; }
+}
+@media (max-width: 640px) {
+  .wrap { gap: 24px; padding-block: 14px 32px; }
+  h2 { font-size: 21px; }
+  header.top { gap: 10px; }
+  .status { width: 100%; justify-content: space-between; }
+  .pill { white-space: normal; line-height: 1.3; }
+  .section-head p { font-size: 12.5px; }
+  .panel { padding: 12px 14px; }
+  .matchup { font-size: 26px; }
+  .matchup.sm { font-size: 24px; }
+  .stat { min-width: 0; flex: 1 1 130px; }
+  .viewbar .seg { display: flex; width: 100%; }
+  .viewbar .seg button { flex: 1 1 0; }
+  .focus select { font-size: 16px; width: 100%; } /* 16px stops iOS from zooming in on focus */
+  .pick button { font-size: 14px; }
+  .game { padding: 12px; }
+}
+@media (max-width: 520px) {
+  #race-table td:nth-child(4), #race-table td:nth-child(5) { grid-column: 1 / -1; }
+}
+@media (max-width: 380px) {
+  h1 { font-size: 28px; }
+  .tname { font-size: 18px; }
+  .odds-row, .odds-head { grid-template-columns: 84px minmax(0, 1fr) 40px 46px; gap: 8px; }
+  .odds-row .nm { font-size: 15px; }
+}
 </style>
+<meta name="theme-color" content="#eef2f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1019" media="(prefers-color-scheme: dark)">
 </head>
 <body>
 
@@ -317,11 +386,12 @@ footer p { margin: 0; }
     <div class="whatif">
       <div class="panel">
         <h3>What if… pick the remaining conference games</h3>
-        <p class="why">Leave a game on <b>Odds</b> to let ESPN's win chance decide it. Your picks update the odds above and the scenario on the right.</p>
+        <p class="why">Leave a game on <b>Odds</b> to let ESPN's win chance decide it. Your picks update the odds above and your scenario.</p>
         <div class="picks-tools">
           <button type="button" id="picks-fav">Favorites win out</button>
           <button type="button" id="picks-reset">Reset to odds</button>
           <span class="calc" id="picks-count"></span>
+          <a class="jump" href="#scenario">See your scenario ↓</a>
         </div>
         <div class="picks" id="picks"></div>
       </div>
@@ -551,10 +621,11 @@ footer p { margin: 0; }
         pips.append(pip);
       }
       tdPips.append(pips);
+      tdPips.dataset.label = "Remaining games · win chance";
 
       const tdProj = el("td"); const proj = el("div", "proj num", best ? `${best.w}-${best.l}` : `${r.w}-${r.l}`);
       proj.append(el("small", "num", best && games.length ? `${best.cw}-${best.cl} conf · ${Math.round(best.p * 100)}% · ${expW.toFixed(1)} exp. wins` : "Final"));
-      tdProj.append(proj);
+      tdProj.append(proj); tdProj.dataset.label = "Likely finish";
 
       const tdDist = el("td", "dist"); const bar = el("div", "bar"); const legend = el("div", "dist-legend");
       dist.forEach((d, i) => {
@@ -564,7 +635,7 @@ footer p { margin: 0; }
         seg.title = `${d.w}-${d.l}: ${pctTxt(d.p * 100)}`; bar.append(seg);
         const li = el("span"); const sw = el("i", "sw"); sw.style.background = `var(--fin-${fi})`; li.append(sw, el("b", "num", `${d.w}-${d.l}`), document.createTextNode(" " + pctTxt(d.p * 100))); legend.append(li);
       });
-      tdDist.append(bar, legend);
+      tdDist.append(bar, legend); tdDist.dataset.label = "Every possible finish";
       tr.append(tdTeam, tdRec, tdPips, tdProj, tdDist); body.append(tr);
     }
 
@@ -1133,16 +1204,17 @@ footer p { margin: 0; }
       const td1 = el("td"); td1.append(el("div", "big", pctShort(q.total)));
       const route = el("div", "route"); route.title = `Wins Big 12 ${pctShort(q.champ)} · at-large after title-game loss ${pctShort(q.atLost)} · at-large without it ${pctShort(q.atMiss)}`;
       for (const v of [q.champ, q.atLost, q.atMiss]) { const i = el("i"); i.style.width = v * 100 + "%"; route.append(i); }
-      td1.append(route);
-      const path = (chance, pPath, label) => {
-        const td = el("td", "path" + (pPath < 0.0005 ? " none" : ""));
+      td1.append(route); td1.dataset.label = "Make the playoff";
+      const path = (chance, pPath, label, short) => {
+        const td = el("td", "path" + (pPath < 0.0005 ? " none" : "")); td.dataset.label = short;
         if (pPath < 0.0005) { td.append(el("span", "pv", "—"), el("span", "ph", hasPicks ? "can't happen with your picks" : "almost never happens")); return td; }
         td.append(el("span", "pv num", pctShort(chance)), el("span", "ph num", `happens ${pctShort(pPath)}`));
         td.title = `${nm(t)} ${label} in ${pctShort(pPath)} of simulated finishes and makes the playoff ${pctShort(chance)} of the time when it does`;
         return td;
       };
       const espn = L.rat[t] && L.rat[t].playoff != null ? pctShort(L.rat[t].playoff / 100) : "—";
-      tr.append(td0, td1, path(1, q.champ, "wins the title game"), path(q.condLost, q.pLost, "reaches and loses the title game"), path(q.condMiss, q.pMiss, "misses the title game"), el("td", "espn", espn));
+      const tdE = el("td", "espn", espn); tdE.dataset.label = "ESPN's playoff %";
+      tr.append(td0, td1, path(1, q.champ, "wins the title game", "Win title game"), path(q.condLost, q.pLost, "reaches and loses the title game", "Lose title game"), path(q.condMiss, q.pMiss, "misses the title game", "Miss title game"), tdE);
       tb.append(tr);
     }
   }
