@@ -18,6 +18,7 @@
   --fin-0: #3d8a5a; --fin-1: #8aab55; --fin-2: #d2b84a; --fin-3: #d08a4a; --fin-4: #c25b4f; --fin-5: #8e3a36; --fin-6: #5a2427;
   --fint-0: #ffffff; --fint-1: #17200d; --fint-2: #2a2205; --fint-3: #2a1605; --fint-4: #ffffff; --fint-5: #ffffff; --fint-6: #ffffff;
   --route-1: #1c5dd0; --route-2: #6f9ae0; --route-3: #b9c9e4;
+  --heat-l: 36%; --heat-bg: .10; /* win-chance gradient: hue 0 (red, 0%) to 120 (green, 100%) */
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -27,6 +28,7 @@
   --fin-0: #3f8a5c; --fin-1: #839f57; --fin-2: #bfa74c; --fin-3: #bf824b; --fin-4: #b3584d; --fin-5: #873b37; --fin-6: #5c2a2c;
   --fint-0: #ffffff; --fint-1: #17200d; --fint-2: #2a2205; --fint-3: #2a1605; --fint-4: #ffffff; --fint-5: #ffffff; --fint-6: #ffffff;
   --route-1: #6ea2ff; --route-2: #3f69b8; --route-3: #2a3a58;
+  --heat-l: 62%; --heat-bg: .14;
   color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #0b1019; --surface: #121a27; --ink: #e6ecf5; --muted: #93a0b5; --line: #243045;
@@ -34,6 +36,7 @@
   --fin-0: #3f8a5c; --fin-1: #839f57; --fin-2: #bfa74c; --fin-3: #bf824b; --fin-4: #b3584d; --fin-5: #873b37; --fin-6: #5c2a2c;
   --fint-0: #ffffff; --fint-1: #17200d; --fint-2: #2a2205; --fint-3: #2a1605; --fint-4: #ffffff; --fint-5: #ffffff; --fint-6: #ffffff;
   --route-1: #6ea2ff; --route-2: #3f69b8; --route-3: #2a3a58;
+  --heat-l: 62%; --heat-bg: .14;
   color-scheme: dark; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.45; }
 .wrap { max-width: 1080px; margin: 0 auto; padding-block: 20px 40px;
@@ -157,6 +160,10 @@ footer p { margin: 0; }
 .pick button .pp { font: 600 12px var(--display); color: var(--muted); }
 .pick button.on { background: var(--accent); border-color: var(--accent); color: var(--surface); }
 .pick button.on .pp { color: var(--surface); opacity: .85; }
+/* win-chance gradient (set --h from JS: 0 = red at 0%, 120 = green at 100%) */
+.pip.heat { background: hsl(var(--h) 70% 50% / var(--heat-bg)); }
+.pip.heat .p, .side .wp.heat, .pick button .pp.heat { color: hsl(var(--h) 75% var(--heat-l)); }
+.pick button.on .pp.heat { color: var(--surface); }
 .pick button.auto { font-size: 11px; color: var(--muted); padding: 6px 7px; justify-content: center; }
 .pick button.auto.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-soft); }
 .pick .tbd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -588,6 +595,11 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   const dayLabel = (g) => (g.timeValid ? fmtDay : fmtDayET).format(new Date(g.date)); // TBA games sit at midnight ET
   const dayKey = (g) => { const d = new Date(g.date); return g.timeValid ? d.toLocaleDateString("en-CA") : d.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); };
   const pctTxt = (p) => (p == null ? "—" : (p >= 99.5 ? ">99" : p <= 0.5 ? "<1" : Math.round(p)) + "%");
+  // color a win chance (0-100) on a red -> yellow -> green gradient
+  const heat = (e, p) => {
+    if (p != null && Number.isFinite(p)) { e.style.setProperty("--h", Math.round(Math.max(0, Math.min(100, p)) * 1.2)); e.classList.add("heat"); }
+    return e;
+  };
   const ord = (n) => ["", "1st", "2nd", "3rd", "4th"][n] || (n > 4 ? "OT" : "");
 
   // ---------- render ----------
@@ -618,6 +630,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         const pip = el("div", "pip" + (c.live ? " live" : c.p >= 50 ? " fav" : ""));
         pip.title = `${home ? "vs" : "at"} ${opp.short}`;
         pip.append(el("span", "opp", `${home ? "vs" : "@"} ${opp.abbr}`), el("span", "p num", pctTxt(c.p)));
+        heat(pip, c.p);
         pips.append(pip);
       }
       tdPips.append(pips);
@@ -683,6 +696,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
       const rr = records()[s.id]; if (rr) nm.append(el("small", "num", `${rr.w}-${rr.l}`));
       const sc = el("span", "sc num", live || done ? (s.score ?? 0) : "");
       const wp = el("span", "wp num", done ? (s.winner ? "W" : "") : pctTxt(p));
+      if (!done) heat(wp, p);
       if (g.possession === s.id && live) nm.append(el("small", null, "● ball"));
       row.append(chip, nm, sc, wp); card.append(row);
     }
@@ -1109,7 +1123,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         const mk = (side) => {
           const isHome = side === 1, ti = isHome ? r.h : r.a, p = isHome ? r.pH : 1 - r.pH;
           const b = el("button", picks[r.id] === side ? "on" : null); b.type = "button";
-          b.append(el("span", "tbd", nm(ti)), el("span", "pp num", pctShort(p)));
+          b.append(el("span", "tbd", nm(ti)), heat(el("span", "pp num", pctShort(p)), p * 100));
           b.setAttribute("aria-pressed", picks[r.id] === side ? "true" : "false");
           b.title = `${nm(ti)} ${isHome ? "at home" : "on the road"} wins`;
           b.addEventListener("click", () => { if (picks[r.id] === side) delete picks[r.id]; else picks[r.id] = side; savePicks(); viewMode = "picks"; renderTitle(); });
