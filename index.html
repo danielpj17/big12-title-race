@@ -160,6 +160,18 @@ footer p { margin: 0; }
 .pick button .pp { font: 600 12px var(--display); color: var(--muted); }
 .pick button.on { background: var(--accent); border-color: var(--accent); color: var(--surface); }
 .pick button.on .pp { color: var(--surface); opacity: .85; }
+/* rest of the conference */
+.rest { margin-top: 12px; }
+.rest > .why { margin: 0 0 6px; }
+.rest-list { display: grid; padding-bottom: 6px; }
+.rest-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.rest-row .team { min-width: 0; }
+.rest-row .chip { height: 22px; }
+.rest-row .tname { font-size: 18px; }
+.rest-row .rec { font-size: 18px; text-align: right; }
+.rest-status { grid-column: 1 / -1; }
+.rest-status b { color: var(--ink); }
+.more-btn { justify-self: start; }
 /* win-chance gradient (set --h from JS: 0 = red at 0%, 120 = green at 100%) */
 .pip.heat { background: hsl(var(--h) 70% 50% / var(--heat-bg)); }
 .pip.heat .p, .side .wp.heat, .pick button .pp.heat { color: hsl(var(--h) 75% var(--heat-l)); }
@@ -313,7 +325,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   <header class="top">
     <div>
       <h1>Big 12 Title Race</h1>
-      <p class="sub">Every team above .500 in conference play, their remaining games with ESPN's win chances, where their records are likely to land, and who's headed to the title game.</p>
+      <p class="sub">Every team still in the running for the Big 12 title game or the playoff, their remaining games with ESPN's win chances, where their records are likely to land, and who's headed to the title game.</p>
     </div>
     <div class="status">
       <span id="pill" class="pill snap"><span class="dot"></span><span id="pill-text">Loading live data…</span></span>
@@ -326,7 +338,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   <section id="race">
     <div class="section-head">
       <h2>The race</h2>
-      <p id="race-note">Conference records first. Win chances come from ESPN's matchup predictor before kickoff and its live win probability during games.</p>
+      <p id="race-note">Teams with at least a 1% chance to reach the title game or the playoff. Conference records first. Win chances come from ESPN's matchup predictor before kickoff and its live win probability during games.</p>
     </div>
     <div class="table-wrap">
       <table id="race-table">
@@ -334,6 +346,11 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         <tbody id="race-body"><tr><td colspan="5" class="muted">Loading live data…</td></tr></tbody>
       </table>
     </div>
+    <details class="rules rest" id="rest" hidden>
+      <summary id="rest-sum">Rest of the Big 12</summary>
+      <p class="why">Under a 1% chance at the title game and the playoff. "No realistic path" means it never happened in 10,000 simulated finishes; it isn't a mathematical elimination. Spoilers still play a team in the race.</p>
+      <div class="rest-list" id="rest-list"></div>
+    </details>
   </section>
 
   <section id="slate-section">
@@ -415,6 +432,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
             <tbody></tbody>
           </table>
         </div>
+        <button type="button" id="stand-more" class="more-btn" aria-controls="sc-stand" aria-expanded="false" hidden>Show all teams</button>
       </div>
     </div>
 
@@ -530,9 +548,20 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     return map;
   }
   const pct = (r) => (r.cw + r.cl ? r.cw / (r.cw + r.cl) : 0);
-  function contenders(recs) {
-    return Object.values(recs).filter((r) => r.cw + r.cl > 0 && pct(r) > 0.5)
-      .sort((a, b) => pct(b) - pct(a) || b.cw - a.cw || (b.w / (b.w + b.l)) - (a.w / (a.w + a.l)));
+  const byStanding = (a, b) => pct(b) - pct(a) || b.cw - a.cw || (b.w / (b.w + b.l || 1)) - (a.w / (a.w + a.l || 1));
+  // In the race: at least RACE_MIN chance to make the title game (current-odds simulation)
+  // or at least RACE_MIN chance at the playoff per ESPN. Everyone else goes to "Rest of the Big 12".
+  const RACE_MIN = 0.01;
+  function splitRace(recs) {
+    const L = buildLeague(), sim = baseSim(L);
+    const inRace = new Set(), title = {};
+    L.ids.forEach((id, i) => {
+      const p = sim.inCnt[i] / SIMS, espn = L.rat[i] && L.rat[i].playoff;
+      title[id] = p;
+      if (p >= RACE_MIN || (espn != null && espn >= RACE_MIN * 100)) inRace.add(id);
+    });
+    const all = Object.values(recs).sort(byStanding);
+    return { race: all.filter((r) => inRace.has(r.id)), rest: all.filter((r) => !inRace.has(r.id)), title };
   }
   function winChance(g, id) {
     const home = g.home.id === id;
@@ -605,8 +634,9 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   // ---------- render ----------
   function render() {
     const recs = records(), tm = teamById();
-    const list = contenders(recs);
+    const { race: list, rest, title } = splitRace(recs);
     const tracked = new Set(list.map((t) => t.id));
+    renderRest(rest, title, tracked, tm);
 
     // race table
     const body = $("race-body"); body.replaceChildren();
@@ -670,6 +700,41 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     $("footer-updated").textContent = `Data from ${fmtStamp.format(new Date(data.updated))}.`;
     updatePill();
     renderTitle();
+  }
+
+  // teams out of the race: records, title-game chance, and which contenders they still play
+  function renderRest(rest, title, tracked, tm) {
+    const box = $("rest"), list = $("rest-list"); list.replaceChildren();
+    box.hidden = !rest.length;
+    if (!rest.length) return;
+    let spoilers = 0;
+    for (const r of rest) {
+      const left = data.games.filter((g) => !g.completed && g.state !== "post" && (g.home.id === r.id || g.away.id === r.id));
+      const vsRace = left.filter((g) => g.conf && tracked.has(g.home.id === r.id ? g.away.id : g.home.id));
+      if (vsRace.length) spoilers++;
+      const row = el("div", "rest-row");
+      const team = el("div", "team"); const chip = el("span", "chip"); chip.style.background = teamColor(r.abbr, r.color);
+      team.append(chip, el("span", "tname", r.short));
+      const recEl = el("div", "rec num", `${r.cw}-${r.cl}`); recEl.append(el("small", null, `conf · ${r.w}-${r.l}`));
+      const status = el("p", "why rest-status");
+      const p = title[r.id] || 0;
+      const parts = [];
+      if (!left.length) parts.push("Regular season over");
+      else parts.push(p < 0.001 ? "No realistic path to the title game (under 0.1%)" : `Title game: ${pctShort(p)}`);
+      status.append(document.createTextNode(parts.join(" · ")));
+      if (vsRace.length) {
+        status.append(document.createTextNode(" · "), el("b", null, "Spoiler: "));
+        status.append(document.createTextNode(vsRace.map((g) => {
+          const home = g.home.id === r.id, opp = home ? g.away : g.home;
+          return `${home ? "vs" : "at"} ${(tm[opp.id] || opp).short}${g.state === "in" ? " (live now)" : ` (${dayLabel(g)})`}`;
+        }).join(", ")));
+      } else if (left.length) {
+        status.append(document.createTextNode(` · No contenders left on its schedule (${left.length} game${left.length > 1 ? "s" : ""} left)`));
+      }
+      row.append(team, recEl, status);
+      list.append(row);
+    }
+    $("rest-sum").textContent = `Rest of the Big 12 · ${rest.length} team${rest.length > 1 ? "s" : ""}` + (spoilers ? `, ${spoilers} still play${spoilers > 1 ? "" : "s"} a contender` : "");
   }
 
   function gameCard(g, tm, tracked) {
@@ -989,6 +1054,21 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   }
 
   // ---------- title game render ----------
+  // Current-odds simulation (no picks), cached per data update. render() needs it first to decide who's in the race.
+  function baseSim(L) {
+    const key = data.updated + "|" + L.rem.map((r) => r.pH).join(",");
+    if (!baseCache || baseCache.key !== key) baseCache = { key, sim: simulate(L, fixedFrom(L, {})) };
+    return baseCache.sim;
+  }
+  const STAND_TOP = 8;
+  let standAll = false;
+  $("stand-more").addEventListener("click", () => {
+    standAll = !standAll;
+    $("sc-stand").querySelectorAll("tbody tr").forEach((tr, k) => { tr.hidden = k >= STAND_TOP && !standAll; });
+    $("stand-more").textContent = standAll ? `Show top ${STAND_TOP} only` : `Show all ${$("sc-stand").querySelectorAll("tbody tr").length} teams`;
+    $("stand-more").setAttribute("aria-expanded", standAll ? "true" : "false");
+  });
+
   function renderTitle() {
     const L = buildLeague();
     // drop picks for games that are over
@@ -998,8 +1078,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     clearTimeout(simTimer);
     $("odds-calc").textContent = "Simulating…";
     simTimer = setTimeout(() => {
-      const key = data.updated + "|" + L.rem.map((r) => r.pH).join(",");
-      if (!baseCache || baseCache.key !== key) baseCache = { key, sim: simulate(L, fixedFrom(L, {})) };
+      baseSim(L);
       const nPicks = Object.keys(picks).length;
       if (!nPicks) viewMode = "odds";
       const hasPicks = viewMode === "picks";
@@ -1179,12 +1258,16 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     const tb = $("sc-stand").querySelector("tbody"); tb.replaceChildren();
     let shown = 0;
     for (const tier of tiers) for (const i of tier) {
-      if (shown >= 8) break;
       const tr = el("tr"); const td = el("td"); td.append(document.createTextNode(nm(i)));
       if (i === seeds[0]) td.append(el("span", "badge", "#1")); else if (i === seeds[1]) td.append(el("span", "badge", "#2"));
       tr.append(td, el("td", "n", rec([S.cw[i], S.cl[i]])), el("td", "n", rec([S.w[i], S.l[i]])));
+      if (shown >= STAND_TOP && !standAll) tr.hidden = true;
       tb.append(tr); shown++;
     }
+    const more = $("stand-more");
+    more.hidden = shown <= STAND_TOP;
+    more.textContent = standAll ? `Show top ${STAND_TOP} only` : `Show all ${shown} teams`;
+    more.setAttribute("aria-expanded", standAll ? "true" : "false");
     renderScenario.last = seeds; renderScenario.S = S;
   }
 

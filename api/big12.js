@@ -81,10 +81,10 @@ module.exports = async (req, res) => {
       });
     });
 
-    const qualifying = new Set(teams.filter((t) => t.cw + t.cl > 0 && t.cw / (t.cw + t.cl) > 0.5).map((t) => t.id));
-
-    // every unplayed game (all teams: the tiebreakers need the whole league), plus recent finals for contenders
-    const wanted = [...gameMap.values()].filter(({ c }) => !c.status.type.completed || c.competitors.some((x) => qualifying.has(x.id)));
+    // every unplayed game (all teams: the tiebreakers need the whole league), plus recent finals for all teams.
+    // The page decides who's in the race from simulated odds, so it needs every team's recent finals.
+    // Finals cost no extra ESPN calls (no summary fetch).
+    const wanted = [...gameMap.values()];
 
     const games = await Promise.all(wanted.map(async ({ e, c }) => {
       const base = {

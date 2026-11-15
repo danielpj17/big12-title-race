@@ -1,6 +1,6 @@
 # Big 12 Title Race
 
-A live, unofficial fan tracker for the Big 12 football race: every team above .500 in conference play, their remaining games with ESPN win chances, live scores, projected records, a title-game simulator that applies the official Big 12 tiebreakers, and College Football Playoff paths.
+A live, unofficial fan tracker for the Big 12 football race: every team still in the running for the title game or the playoff, their remaining games with ESPN win chances, live scores, projected records, a title-game simulator that applies the official Big 12 tiebreakers, and College Football Playoff paths.
 
 Live site: https://big12-live-odds.vercel.app
 
@@ -21,12 +21,13 @@ browser (index.html)  ──fetch──▶  /api/big12  (Vercel function)  ─�
 
 ## What's on the page
 
-- **The race**: contenders above .500 in conference play, remaining games with win chances, most likely finish, and the probability of every possible final record.
+- **The race**: every team with at least a 1% chance to make the title game (from the simulation at current odds) or the playoff (ESPN's playoff %), with remaining games and win chances, most likely finish, and the probability of every possible final record.
+- **Rest of the Big 12**: a collapsed list of every other team with its records, its title-game chance ("no realistic path" when it never reached the title game in 10,000 simulated finishes, which is not a proof of elimination), and any remaining games against teams in the race (spoilers).
 - **The slate**: remaining games by date with kickoff time (viewer's time zone), venue, TV, line, and a win-chance bar in team colors (away team on the left). Live scores and live win probability during games.
 - **Title game picture**
   - Three cards: most likely matchup (10,000 simulated finishes), the finish where every favorite wins, and the matchup from your own picks.
   - Title-game odds per team, with a switch between current odds and your picks.
-  - What-if picker for all remaining conference games, with a step-by-step tiebreaker explanation for the resulting standings. Picks are saved in the viewer's browser (`localStorage`).
+  - What-if picker for all remaining conference games, with a step-by-step tiebreaker explanation and full 16-team standings for the result (top 8 shown, the rest behind a button). Picks are saved in the viewer's browser (`localStorage`).
   - Playoff odds by path: win the Big 12 (automatic bid), lose the title game, or miss it.
   - Per-team view of which remaining games swing its title-game chances the most.
 
