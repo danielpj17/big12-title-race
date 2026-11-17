@@ -241,6 +241,24 @@ footer p { margin: 0; }
 .answer h4 { margin: 0; font: 600 14px var(--body); }
 .answer p { margin: 0; font-size: 13px; }
 .answer .vs2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.need { gap: 8px; }
+.need h5 { margin: 6px 0 0; font: 600 11px var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.lits { margin: 0; padding: 0; list-style: none; display: grid; }
+.lits li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: baseline; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.lits li:last-child { border-bottom: 0; }
+.lits .lits-head { padding: 0 0 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.lits .pp { font: 700 15px var(--display); color: var(--muted); }
+.lits .pp.heat { color: hsl(var(--h) 75% var(--heat-l)); }
+.npath { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.npath-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 13px; }
+.npath-head b { font: 700 17px var(--display); }
+.npath button, .need > button { justify-self: start; }
+.tag { font: 600 11px var(--body); padding: 1px 7px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+.tag.toss { background: transparent; color: var(--warn); box-shadow: inset 0 0 0 1px currentColor; }
+.more-paths summary { cursor: pointer; font: 600 13px var(--body); color: var(--accent); padding: 2px 0; }
+.more-paths summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.more-paths > .npath { margin-top: 8px; }
+@media (pointer: coarse) { .more-paths summary { padding: 10px 0; } }
 .sc-cfp { display: grid; gap: 4px; }
 .sc-cfp h4 { margin: 4px 0 2px; font: 600 12px var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .sc-cfp div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; font-size: 13px; border-bottom: 1px solid var(--line); padding: 4px 0; }
@@ -463,8 +481,9 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 
     <div class="panel focus">
       <h3>What does a team need?</h3>
-      <label for="focus-team" class="why">Pick a team to compare its playoff paths and see which remaining games move its title-game chances the most. Follows the Current odds / With your picks switch above.</label>
+      <label for="focus-team" class="why">Pick a team to see exactly what has to happen for it to reach the title game, which other results to root for, and how its playoff paths compare. Follows the Current odds / With your picks switch above.</label>
       <select id="focus-team"></select>
+      <div class="answer need" id="need" hidden></div>
       <div class="answer" id="lose-or-miss" hidden></div>
       <div class="swing" id="swing"></div>
     </div>
@@ -1377,6 +1396,233 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     box.append(el("p", "calc", "Not counted here: winning the title game, which is an automatic bid. The at-large math depends on the title-game-loss slider above."));
   }
 
+  // ---------- exact paths: every way the undecided conference games can go ----------
+  // Once few enough games are left, every finish is run through the tiebreakers (2^16 = 65,536 at most), so the
+  // "has to happen" list, rooting guide and paths are exact rather than sampled. Picked games stay fixed in the picks view.
+  const EXACT_MAX = 16;
+  let exactCache = null, pathsOpen = false;
+  // Top-two odds for one finish: the seeds when no coin flip is involved, else each team's chance (Float64Array).
+  // A SportSource/coin-toss step is followed down every branch, so a flip that only decides #1 between two
+  // teams that are both in still counts as in for both.
+  function seedOdds(S) {
+    let flips = 0;
+    const { seeds } = seedTop2(S, null, () => { flips++; return 1e-9; });
+    if (!flips) return seeds;
+    const p = new Float64Array(S.N);
+    (function walk(script, w) {
+      const log = []; let c = 0;
+      const r = seedTop2(S, log, () => (c < script.length ? script[c++] : 1e-9));
+      const f = log.filter((e) => e.step === "f");           // the k-th toss entry is the k-th rng() call
+      if (f.length > script.length) { const k = f[script.length].teams.length; for (let i = 0; i < k; i++) walk([...script, (i + 0.5) / k], w / k); }
+      else { p[r.seeds[0]] += w; p[r.seeds[1]] += w; }
+    })([], 1);
+    return p;
+  }
+  function exactRun(L, fixedPicks) {
+    // non-conference games go to the favorite: they only feed the total-wins step
+    const base = Uint8Array.from(L.rem, (r) => (fixedPicks[r.id] === 1 ? 1 : fixedPicks[r.id] === 0 ? 0 : r.pH >= 0.5 ? 1 : 0));
+    const free = []; L.rem.forEach((r, k) => { if (r.conf && r.h != null && r.a != null && fixedPicks[r.id] == null) free.push(k); });
+    const n = free.length;
+    if (n > EXACT_MAX) return { n, tooMany: true };
+    const key = [L.rem.map((r) => r.id).join(","), free.join(","), base.join(""), L.cw.join(","), L.cl.join(","), L.w.join(","), L.l.join(","), L.res.join("")].join("|");
+    if (!exactCache || exactCache.key !== key) {
+      const M = 1 << n, a = new Uint8Array(M), b = new Uint8Array(M), split = new Map(), out = base.slice();
+      for (let m = 0; m < M; m++) {
+        for (let j = 0; j < n; j++) out[free[j]] = (m >> j) & 1;
+        const s = seedOdds(applyOutcome(L, out));
+        if (Array.isArray(s)) { a[m] = s[0]; b[m] = s[1]; } else split.set(m, s);
+      }
+      exactCache = { key, n, free, M, a, b, split, nonConf: L.rem.some((r) => !r.conf) };
+    }
+    const X = exactCache, pr = new Float64Array(X.M); pr[0] = 1;   // probability of each finish from ESPN's win chances
+    for (let j = 0; j < n; j++) { const p = L.rem[free[j]].pH, h = 1 << j; for (let m = 0; m < h; m++) { pr[m | h] = pr[m] * p; pr[m] *= 1 - p; } }
+    return { ...X, pr };
+  }
+  function needFor(X, L, t) {
+    const { n, free, M, a, b, split, pr } = X, all = (1 << n) - 1;
+    const ch = new Float64Array(M);
+    let total = 0, nIn = 0, nAny = 0, seen0 = 0, seen1 = 0;
+    for (let m = 0; m < M; m++) {
+      const s = split.get(m), c = s ? s[t] : a[m] === t || b[m] === t ? 1 : 0;
+      ch[m] = c; total += pr[m] * c;
+      if (c > 0) { nAny++; seen1 |= m; seen0 |= ~m & all; if (c > 1 - 1e-9) nIn++; }
+    }
+    const G = (j) => L.rem[free[j]], litP = (j, v) => (v ? G(j).pH : 1 - G(j).pH);
+    const lit = (j, v) => ({ w: v ? G(j).h : G(j).a, l: v ? G(j).a : G(j).h, p: litP(j, v), r: G(j) });
+    const R = { total, nIn, nAny, must: [], mustPick: [], root: [], idle: [], paths: [], cover: 0, pMust: 1, condMust: 0 };
+    if (!nAny || nIn === M) return R;
+    // results that go the same way in every finish where t can still get in
+    let mMask = 0, mVal = 0;
+    for (let j = 0; j < n; j++) {
+      const s1 = (seen1 >> j) & 1; if (s1 === ((seen0 >> j) & 1)) continue;
+      mMask |= 1 << j; if (s1) mVal |= 1 << j;
+      R.pMust *= litP(j, s1); R.must.push(lit(j, s1)); R.mustPick.push([G(j).id, s1]);
+    }
+    R.condMust = total / R.pMust;
+    // rooting guide: t's chance for each result of every other game, given the must-haves happen
+    if (R.condMust < 1 - 1e-9) {
+      const num = new Float64Array(n * 2), den = new Float64Array(n * 2);
+      for (let m = 0; m < M; m++) {
+        if ((m & mMask) !== mVal) continue;
+        const q = pr[m], c = q * ch[m];
+        for (let j = 0; j < n; j++) { const k = j * 2 + ((m >> j) & 1); num[k] += c; den[k] += q; }
+      }
+      for (let j = 0; j < n; j++) {
+        if ((mMask >> j) & 1 || den[j * 2] < 1e-15 || den[j * 2 + 1] < 1e-15) continue;
+        const p1 = num[j * 2 + 1] / den[j * 2 + 1], p0 = num[j * 2] / den[j * 2], v = p1 >= p0 ? 1 : 0;
+        R.root.push({ ...lit(j, v), yes: Math.max(p0, p1), no: Math.min(p0, p1), d: Math.abs(p1 - p0) });
+      }
+      R.root.sort((x, y) => y.d - x.d);
+    }
+    for (let j = 0; j < n; j++) {                              // games that can't change t's chances at all
+      const h = 1 << j; let same = true;
+      for (let m = 0; m < M && same; m++) if (!(m & h) && Math.abs(ch[m] - ch[m | h]) > 1e-9) same = false;
+      if (same) R.idle.push(G(j));
+    }
+    // paths: grow a finish into a set of results that works however the other games go, by dropping every
+    // condition it doesn't need (least likely first). Each round tries several of the likeliest finishes not yet
+    // covered and keeps the likeliest set, so paths come out roughly in order of how likely they are.
+    const outright = nIn > 0, good = outright ? (m) => ch[m] > 1 - 1e-9 : (m) => ch[m] > 0;
+    const allGood = (m0, mask) => { const fx = m0 & ~mask; for (let s = mask; ; s = (s - 1) & mask) { if (!good(fx | s)) return false; if (!s) return true; } };
+    const cubeP = (m0, mask) => { let p = 1; for (let j = 0; j < n; j++) if (!((mask >> j) & 1)) p *= litP(j, (m0 >> j) & 1); return p; };
+    const grow = (m0) => {
+      const order = [...Array(n).keys()].filter((j) => !((mMask >> j) & 1)).sort((x, y) => litP(x, (m0 >> x) & 1) - litP(y, (m0 >> y) & 1));
+      let mask = 0;
+      for (const j of order) if (allGood(m0, mask | (1 << j))) mask |= 1 << j;
+      return mask;
+    };
+    const cand = []; for (let m = 0; m < M; m++) if (good(m)) cand.push(m);
+    cand.sort((x, y) => pr[y] - pr[x]);
+    const covered = new Uint8Array(M);
+    while (R.paths.length < 3) {
+      const tried = []; let best = null;
+      for (const m0 of cand) {
+        if (covered[m0] || tried.some(([c, k]) => (m0 & ~k) === (c & ~k))) continue;   // already inside a set grown this round
+        const mask = grow(m0), p = cubeP(m0, mask);
+        tried.push([m0, mask]);
+        if (!best || p > best.p) best = { m0, mask, p };
+        if (tried.length >= 40) break;
+      }
+      if (!best) break;
+      const { m0, mask } = best, fx = m0 & ~mask;
+      for (let s = mask; ; s = (s - 1) & mask) { covered[fx | s] = 1; if (!s) break; }
+      const P = { lits: [], pick: [], p: best.p };
+      for (let j = 0; j < n; j++) {
+        if ((mask >> j) & 1) continue;
+        const v = (m0 >> j) & 1; P.pick.push([G(j).id, v]);
+        if (!((mMask >> j) & 1)) P.lits.push(lit(j, v));
+      }
+      R.paths.push(P);
+    }
+    R.paths.sort((x, y) => y.p - x.p);
+    let cov = 0; for (let m = 0; m < M; m++) if (covered[m]) cov += pr[m] * ch[m];
+    R.cover = total ? cov / total : 0;
+    return R;
+  }
+
+  const pctFine = (x) => (x >= 0.995 || x === 0 ? pctShort(x) : x >= 0.01 ? Math.round(x * 100) + "%" : x >= 0.001 ? (x * 100).toFixed(1) + "%" : x >= 0.0001 ? (x * 100).toFixed(2) + "%" : "<0.01%");
+  const oneIn = (x) => { const v = 1 / x, mag = 10 ** Math.max(0, Math.floor(Math.log10(v)) - 1); return (Math.round(v / mag) * mag).toLocaleString(); };
+  const longShot = (x) => (x > 0 && x < 0.05 ? `, about 1 in ${oneIn(x)}` : "");
+  const gameWhen = (g) => (g.state === "in" ? "live now" : dayLabel(g));
+  function litList(lits, head) {
+    const ul = el("ul", "lits");
+    if (head) { const li = el("li", "lits-head"); li.append(el("span"), el("span", null, "ESPN win chance")); ul.append(li); }
+    for (const x of lits.slice().sort((p, q) => new Date(p.r.g.date) - new Date(q.r.g.date))) {
+      const li = el("li"), s = el("span");
+      s.append(el("b", null, nm(x.w)), document.createTextNode(` beats ${nm(x.l)} · ${gameWhen(x.r.g)}`));
+      const pp = heat(el("span", "pp num", pctShort(x.p)), x.p * 100); pp.title = `ESPN's chance that ${nm(x.w)} wins`;
+      li.append(s, pp); ul.append(li);
+    }
+    return ul;
+  }
+  // put a set of results into What if… (keeping the viewer's other picks) and jump to the scenario it produces
+  function loadPicks(list) {
+    for (const [id, v] of list) picks[id] = v;
+    savePicks(); viewMode = "picks"; renderTitle();
+    let smooth = true; try { smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) {}
+    $("scenario").scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  }
+  function tryBtn(list) {
+    const b = el("button", null, "Try it in What if…"); b.type = "button";
+    b.title = "Sets these results in What if… (your other picks stay) and shows the tiebreakers for that finish";
+    b.addEventListener("click", () => loadPicks(list));
+    return b;
+  }
+
+  // returns true when it showed exact results (then the sampled swing list below is redundant)
+  function renderNeed(L, t) {
+    const box = $("need"); box.replaceChildren(); box.hidden = false;
+    const withPicks = viewMode === "picks", T = nm(t);
+    const X = exactRun(L, withPicks ? picks : {});
+    box.append(el("h4", null, `What ${T} needs to reach the title game`));
+    if (X.tooMany) {
+      box.append(el("p", null, `Exact paths show up once ${EXACT_MAX} or fewer conference games are undecided (${X.n} now). To get there sooner, pick some games in What if… and switch to With your picks.`));
+      return false;
+    }
+    const R = needFor(X, L, t), n = X.n, ways = X.M.toLocaleString(), pre = withPicks ? "With your picks, " : "";
+    const scope = n === 0 ? "" : withPicks ? (n === 1 ? "the one conference game you left on Odds" : `the ${n} conference games you left on Odds`) : (n === 1 ? "the last conference game" : `the last ${n} conference games`);
+    const go = n === 1 ? "goes" : "go", TOSS = "a tie that comes down to the SportSource rating or a coin toss";
+    const chance = `Using ESPN's win chances, that adds up to ${pctFine(R.total)}${longShot(R.total)}.`;
+    let head;
+    if (!R.nAny) head = `${pre}${T} can't reach the title game` + (n ? `: none of the ${ways} ways ${scope} can go puts it there.` : ".");
+    else if (R.nIn === X.M) head = `${pre}${T} is in the title game` + (n ? ` however ${scope} ${go}.` : ".");
+    else if (!n) head = `${pre}${T}'s spot comes down to the SportSource rating or a coin toss (${pctFine(R.total)} on this page).`;
+    else if (R.nIn) head = `${pre}${T} gets in outright in ${R.nIn.toLocaleString()} of the ${ways} ways ${scope} can go` + (R.nAny > R.nIn ? `, and ${(R.nAny - R.nIn).toLocaleString()} more end in ${TOSS}. ` : ". ") + chance;
+    else head = `${pre}${T} can't get in outright. Its only way is ${TOSS}, which happens in ${R.nAny.toLocaleString()} of the ${ways} ways ${scope} can go. ${chance}`;
+    box.append(el("p", null, head));
+    if (!R.nAny || R.nIn === X.M || !n) return true;
+
+    if (R.must.length) {
+      const k = R.must.length;
+      box.append(el("h5", null, k === 1 ? "Has to happen" : `Has to happen: all ${k}`), litList(R.must, true));
+      if (R.condMust > 1 - 1e-9) {
+        box.append(el("p", null, `That's all it takes: if ${k === 1 ? "that happens" : "these happen"}, ${T} is in however the other games go. Chance of that: ${pctFine(R.pMust)}${longShot(R.pMust)}.`), tryBtn(R.mustPick));
+      } else {
+        box.append(el("p", null, `${k === 1 ? "That alone" : `All ${k} together`} happen${k === 1 ? "s" : ""} ${pctFine(R.pMust)} of the time, and ${k === 1 ? "it isn't" : "they aren't"} enough on ${k === 1 ? "its" : "their"} own: with ${k === 1 ? "it" : "them"}, ${T}'s chance is ${pctFine(R.condMust)}. The rest depends on other games.`));
+      }
+    }
+    const top = R.root.filter((x) => x.d >= 0.005).slice(0, 6);
+    if (top.length) {
+      box.append(el("h5", null, R.must.length ? "Then root for" : "Root for"),
+        el("p", "why", `${T}'s title-game chance after each result${R.must.length ? ", assuming the must-haves happen" : ""}:`));
+      const wrap = el("div", "swing");
+      for (const x of top) {
+        const row = el("div", "swing-row"), left = el("div");
+        left.append(el("b", null, nm(x.w)), document.createTextNode(` over ${nm(x.l)} · ${gameWhen(x.r.g)}`));
+        left.append(el("div", "why", `If ${nm(x.w)} wins: ${pctFine(x.yes)} · if ${nm(x.l)} wins: ${pctFine(x.no)}`));
+        const dl = el("span", "delta num", `${x.d >= 0.095 ? Math.round(x.d * 100) : (x.d * 100).toFixed(1)}-pt swing`);
+        dl.title = `Difference in ${T}'s title-game chance between the two results`;
+        row.append(left, dl); wrap.append(row);
+      }
+      box.append(wrap);
+    }
+    if (R.paths.length && R.condMust < 1 - 1e-9) {
+      const outright = R.nIn > 0;
+      box.append(el("h5", null, outright ? "Most likely way in" : "Most likely way to a coin-toss tie"));
+      const more = el("details", "more-paths");
+      R.paths.forEach((P, i) => {
+        const d = el("div", "npath"), hd = el("div", "npath-head");
+        hd.append(el("b", null, `Path ${i + 1}`), el("span", "num", `${pctFine(P.p)} chance${longShot(P.p)}`), el("span", "tag" + (outright ? "" : " toss"), outright ? "clinches a spot" : "coin toss"));
+        d.append(hd);
+        if (P.lits.length) { if (R.must.length) d.append(el("p", "why", "The must-haves above, plus:")); d.append(litList(P.lits, !i && !R.must.length)); }
+        d.append(tryBtn(P.pick));
+        (i ? more : box).append(d);
+      });
+      if (R.paths.length > 1) {
+        more.prepend(el("summary", null, `${R.paths.length - 1} more path${R.paths.length > 2 ? "s" : ""}`));
+        more.open = pathsOpen; more.addEventListener("toggle", () => { pathsOpen = more.open; });
+        box.append(more);
+      }
+      if (R.cover < 0.995) box.append(el("p", "calc", `${R.paths.length === 1 ? "This path covers" : `These ${R.paths.length} cover`} ${pctShort(R.cover)} of ${T}'s chances. The rest come from other, less likely combinations${outright && R.nAny > R.nIn ? ", including the coin-toss ties" : ""}.`));
+    }
+    const notes = [`Every one of the ${ways} finishes is run through the tiebreakers, so these lists are exact, not sampled. Percentages next to each result are ESPN's win chances; coin-toss ties count as even odds.`];
+    if (R.idle.length) notes.push(`Can't affect ${T}: ${R.idle.map((r) => `${nm(r.a)} at ${nm(r.h)}`).join(", ")}.`);
+    if (X.nonConf) notes.push("Non-conference games are set to the favorite here; they only matter for the total-wins step.");
+    if (!L.haveResults) notes.push("Full season results haven't loaded yet, so head-to-head and common-opponent steps may be incomplete.");
+    box.append(el("p", "calc", notes.join(" ")));
+    return true;
+  }
+
   function renderFocus(L, sim) {
     const sel = $("focus-team");
     const order = [...Array(L.N).keys()].sort((x, y) => sim.inCnt[y] - sim.inCnt[x] || x - y);
@@ -1384,8 +1630,11 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     sel.replaceChildren(...order.map((i) => { const o = el("option", null, `${nm(i)} (${pctShort(sim.inCnt[i] / SIMS)})`); o.value = ABBR[i]; return o; }));
     sel.value = focusAbbr;
     const t = ABBR.indexOf(focusAbbr), p = sim.inCnt[t] / SIMS;
+    const exact = renderNeed(L, t);
     if (lastRun) renderLoseOrMiss(L, sim, lastRun.A, t);
     const box = $("swing"); box.replaceChildren();
+    box.hidden = exact;            // the exact rooting guide above replaces the sampled list
+    if (exact) return;
     const head = el("p", "why");
     if (p >= 0.99995) head.textContent = `${nm(t)} makes the title game in every simulated finish${viewMode === "picks" ? " with your picks" : ""}.`;
     else if (p === 0) head.textContent = `${nm(t)} doesn't make the title game in any simulated finish${viewMode === "picks" ? " with your picks" : ""}.`;

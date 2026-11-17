@@ -29,7 +29,7 @@ browser (index.html)  ──fetch──▶  /api/big12  (Vercel function)  ─�
   - Title-game odds per team, with a switch between current odds and your picks.
   - What-if picker for all remaining conference games, with a step-by-step tiebreaker explanation and full 16-team standings for the result (top 8 shown, the rest behind a button). Picks are saved in the viewer's browser (`localStorage`).
   - Playoff odds by path: win the Big 12 (automatic bid), lose the title game, or miss it.
-  - Per-team view of which remaining games swing its title-game chances the most.
+  - **What does a team need?** Pick a team to see exactly what it needs to reach the title game: results that have to happen, which other results to root for (its chance after each one), and its most likely complete paths in, each of which can be loaded into the what-if picker to see the tiebreakers play out. Once 16 or fewer conference games are undecided, every possible finish (up to 65,536) is run through the tiebreakers, so these lists are exact rather than sampled. With more games left, the page falls back to the simulation's list of games that swing the team's chances most.
 
 ## Model notes and assumptions
 
@@ -39,6 +39,7 @@ browser (index.html)  ──fetch──▶  /api/big12  (Vercel function)  ─�
 - Step c (next-highest common opponent) only counts opponents every tied team played, and treats a tied group in the standings as one opponent.
 - Step f (SportSource Analytics rating) isn't public, so f/g are treated as a coin flip and flagged.
 - Total wins (step e) does not remove a second FCS win.
+- In the exact "What does a team need?" lists, a finish that reaches step f counts at even odds for each team in the toss (every branch is followed, so a toss that only decides the #1 seed between two teams already in counts as in for both). Any non-conference games still left are set to the favorite there, since they only feed step e.
 
 **Playoff odds** (12-team format: 5 highest-ranked conference champions + 7 at-large):
 
