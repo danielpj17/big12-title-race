@@ -481,7 +481,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 
     <div class="panel focus">
       <h3>What does a team need?</h3>
-      <label for="focus-team" class="why">Pick a team to see exactly what has to happen for it to reach the title game, which other results to root for, and how its playoff paths compare. Follows the Current odds / With your picks switch above.</label>
+      <label for="focus-team" class="why">Pick a team to see exactly what has to happen for it to reach the title game, which other results to root for, and how its playoff paths compare. Always uses current odds; your What if… picks don't change it.</label>
       <select id="focus-team"></select>
       <div class="answer need" id="need" hidden></div>
       <div class="answer" id="lose-or-miss" hidden></div>
@@ -1113,7 +1113,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
       renderScenarioOdds(L, pickSim || baseCache.sim);
       renderPlayoff(lastRun);
       renderScenarioCfp(L, baseCache.A);
-      renderFocus(L, sim);
+      renderFocus(L, baseCache.sim);   // always current odds: the viewer's picks don't change this section
     }, 20);
   }
 
@@ -1371,8 +1371,8 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     const grid = el("div", "vs2");
     const stat = (v, lab) => { const d = el("div", "stat"); d.append(el("b", "num", v), el("span", null, lab)); return d; };
     grid.append(stat(pctShort(q.total), "make the playoff overall"),
-      stat(q.pLost >= 0.0005 ? pctShort(q.condLost) : "—", q.pLost >= 0.0005 ? `if it reaches the title game and loses (happens ${pctShort(q.pLost)})` : "if it loses the title game (can't happen in this view)"),
-      stat(q.pMiss >= 0.0005 ? pctShort(q.condMiss) : "—", q.pMiss >= 0.0005 ? `if it misses the title game (happens ${pctShort(q.pMiss)})` : "if it misses the title game (can't happen in this view)"));
+      stat(q.pLost >= 0.0005 ? pctShort(q.condLost) : "—", q.pLost >= 0.0005 ? `if it reaches the title game and loses (happens ${pctShort(q.pLost)})` : "if it loses the title game (almost never happens)"),
+      stat(q.pMiss >= 0.0005 ? pctShort(q.condMiss) : "—", q.pMiss >= 0.0005 ? `if it misses the title game (happens ${pctShort(q.pMiss)})` : "if it misses the title game (almost never happens)"));
     box.append(grid);
     const k = typicalCcgLosses(sim, t);
     if (q.pLost >= 0.005 && q.pMiss >= 0.005) {
@@ -1398,7 +1398,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 
   // ---------- exact paths: every way the undecided conference games can go ----------
   // Once few enough games are left, every finish is run through the tiebreakers (2^16 = 65,536 at most), so the
-  // "has to happen" list, rooting guide and paths are exact rather than sampled. Picked games stay fixed in the picks view.
+  // "has to happen" list, rooting guide and paths are exact rather than sampled. Always current odds: picks are ignored.
   const EXACT_MAX = 16;
   let exactCache = null, pathsOpen = false;
   // Top-two odds for one finish: the seeds when no coin flip is involved, else each team's chance (Float64Array).
@@ -1418,10 +1418,10 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     })([], 1);
     return p;
   }
-  function exactRun(L, fixedPicks) {
+  function exactRun(L) {
     // non-conference games go to the favorite: they only feed the total-wins step
-    const base = Uint8Array.from(L.rem, (r) => (fixedPicks[r.id] === 1 ? 1 : fixedPicks[r.id] === 0 ? 0 : r.pH >= 0.5 ? 1 : 0));
-    const free = []; L.rem.forEach((r, k) => { if (r.conf && r.h != null && r.a != null && fixedPicks[r.id] == null) free.push(k); });
+    const base = Uint8Array.from(L.rem, (r) => (r.pH >= 0.5 ? 1 : 0));
+    const free = []; L.rem.forEach((r, k) => { if (r.conf && r.h != null && r.a != null) free.push(k); });
     const n = free.length;
     if (n > EXACT_MAX) return { n, tooMany: true };
     const key = [L.rem.map((r) => r.id).join(","), free.join(","), base.join(""), L.cw.join(","), L.cl.join(","), L.w.join(","), L.l.join(","), L.res.join("")].join("|");
@@ -1552,23 +1552,22 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   // returns true when it showed exact results (then the sampled swing list below is redundant)
   function renderNeed(L, t) {
     const box = $("need"); box.replaceChildren(); box.hidden = false;
-    const withPicks = viewMode === "picks", T = nm(t);
-    const X = exactRun(L, withPicks ? picks : {});
+    const T = nm(t), X = exactRun(L);
     box.append(el("h4", null, `What ${T} needs to reach the title game`));
     if (X.tooMany) {
-      box.append(el("p", null, `Exact paths show up once ${EXACT_MAX} or fewer conference games are undecided (${X.n} now). To get there sooner, pick some games in What if… and switch to With your picks.`));
+      box.append(el("p", null, `Exact paths show up once ${EXACT_MAX} or fewer conference games are left (${X.n} now).`));
       return false;
     }
-    const R = needFor(X, L, t), n = X.n, ways = X.M.toLocaleString(), pre = withPicks ? "With your picks, " : "";
-    const scope = n === 0 ? "" : withPicks ? (n === 1 ? "the one conference game you left on Odds" : `the ${n} conference games you left on Odds`) : (n === 1 ? "the last conference game" : `the last ${n} conference games`);
+    const R = needFor(X, L, t), n = X.n, ways = X.M.toLocaleString();
+    const scope = n === 0 ? "" : n === 1 ? "the last conference game" : `the last ${n} conference games`;
     const go = n === 1 ? "goes" : "go", TOSS = "a tie that comes down to the SportSource rating or a coin toss";
     const chance = `Using ESPN's win chances, that adds up to ${pctFine(R.total)}${longShot(R.total)}.`;
     let head;
-    if (!R.nAny) head = `${pre}${T} can't reach the title game` + (n ? `: none of the ${ways} ways ${scope} can go puts it there.` : ".");
-    else if (R.nIn === X.M) head = `${pre}${T} is in the title game` + (n ? ` however ${scope} ${go}.` : ".");
-    else if (!n) head = `${pre}${T}'s spot comes down to the SportSource rating or a coin toss (${pctFine(R.total)} on this page).`;
-    else if (R.nIn) head = `${pre}${T} gets in outright in ${R.nIn.toLocaleString()} of the ${ways} ways ${scope} can go` + (R.nAny > R.nIn ? `, and ${(R.nAny - R.nIn).toLocaleString()} more end in ${TOSS}. ` : ". ") + chance;
-    else head = `${pre}${T} can't get in outright. Its only way is ${TOSS}, which happens in ${R.nAny.toLocaleString()} of the ${ways} ways ${scope} can go. ${chance}`;
+    if (!R.nAny) head = `${T} can't reach the title game` + (n ? `: none of the ${ways} ways ${scope} can go puts it there.` : ".");
+    else if (R.nIn === X.M) head = `${T} is in the title game` + (n ? ` however ${scope} ${go}.` : ".");
+    else if (!n) head = `${T}'s spot comes down to the SportSource rating or a coin toss (${pctFine(R.total)} on this page).`;
+    else if (R.nIn) head = `${T} gets in outright in ${R.nIn.toLocaleString()} of the ${ways} ways ${scope} can go` + (R.nAny > R.nIn ? `, and ${(R.nAny - R.nIn).toLocaleString()} more end in ${TOSS}. ` : ". ") + chance;
+    else head = `${T} can't get in outright. Its only way is ${TOSS}, which happens in ${R.nAny.toLocaleString()} of the ${ways} ways ${scope} can go. ${chance}`;
     box.append(el("p", null, head));
     if (!R.nAny || R.nIn === X.M || !n) return true;
 
@@ -1636,14 +1635,14 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     box.hidden = exact;            // the exact rooting guide above replaces the sampled list
     if (exact) return;
     const head = el("p", "why");
-    if (p >= 0.99995) head.textContent = `${nm(t)} makes the title game in every simulated finish${viewMode === "picks" ? " with your picks" : ""}.`;
-    else if (p === 0) head.textContent = `${nm(t)} doesn't make the title game in any simulated finish${viewMode === "picks" ? " with your picks" : ""}.`;
+    if (p >= 0.99995) head.textContent = `${nm(t)} makes the title game in every simulated finish.`;
+    else if (p === 0) head.textContent = `${nm(t)} doesn't make the title game in any simulated finish.`;
     else head.textContent = `${nm(t)} makes the title game in ${pctShort(p)} of simulated finishes. The games that move that number most:`;
     box.append(head);
     if (p === 0 || p >= 0.99995) return;
     const rows = [];
     L.rem.forEach((r, k) => {
-      if ((viewMode === "picks" && picks[r.id] != null) || !r.conf) return;
+      if (!r.conf) return;
       const nh = sim.condTot[k * 2 + 1], na = sim.condTot[k * 2];
       if (nh < 50 || na < 50) return;
       const ph = sim.cond[(k * 2 + 1) * L.N + t] / nh, pa = sim.cond[(k * 2) * L.N + t] / na;

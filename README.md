@@ -29,7 +29,7 @@ browser (index.html)  ──fetch──▶  /api/big12  (Vercel function)  ─�
   - Title-game odds per team, with a switch between current odds and your picks.
   - What-if picker for all remaining conference games, with a step-by-step tiebreaker explanation and full 16-team standings for the result (top 8 shown, the rest behind a button). Picks are saved in the viewer's browser (`localStorage`).
   - Playoff odds by path: win the Big 12 (automatic bid), lose the title game, or miss it.
-  - **What does a team need?** Pick a team to see exactly what it needs to reach the title game: results that have to happen, which other results to root for (its chance after each one), and its most likely complete paths in, each of which can be loaded into the what-if picker to see the tiebreakers play out. Once 16 or fewer conference games are undecided, every possible finish (up to 65,536) is run through the tiebreakers, so these lists are exact rather than sampled. With more games left, the page falls back to the simulation's list of games that swing the team's chances most.
+  - **What does a team need?** Always at current odds (your picks don't change it). Pick a team to see exactly what it needs to reach the title game: results that have to happen, which other results to root for (its chance after each one), and its most likely complete paths in, each of which can be loaded into the what-if picker to see the tiebreakers play out. Once 16 or fewer conference games are undecided, every possible finish (up to 65,536) is run through the tiebreakers, so these lists are exact rather than sampled. With more games left, the page falls back to the simulation's list of games that swing the team's chances most.
 
 ## Model notes and assumptions
 
