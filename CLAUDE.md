@@ -4,15 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Unofficial live tracker for the Big 12 football title race (live site: https://big12-live-odds.vercel.app). Two files do everything: `api/big12.js` (Vercel Node function) and `index.html` (the whole front end: inline CSS + one IIFE script). No package.json, no build step, no dependencies, no tests, no linter. README.md documents the model assumptions and tiebreaker interpretations in detail; keep it in sync when changing model behavior.
+Unofficial live tracker for the Big 12 football title race (live site: https://big12-live-odds.vercel.app), plus a national Top 15 page. Each page is one self-contained HTML file (inline CSS + one IIFE script) backed by one Vercel Node function:
+- `index.html` + `api/big12.js`: the Big 12 title race (the main page).
+- `ncaa.html` + `api/ncaa.js`: the national page: top 15 of the CFP rankings or AP poll (switchable), ranked 16–25, slate, projected 12-team bracket and a playoff rooting guide.
+
+A `.sitenav` switcher ("Big 12" / "NCAA") sits at the top of both pages. There is no shared CSS/JS file: `ncaa.html` carries its own copy of the design tokens, the slate card and the color/format helpers, so a look-and-feel change usually needs making in both files. No package.json, no build step, no dependencies, no tests, no linter. README.md documents the model assumptions and tiebreaker interpretations in detail; keep it in sync when changing model behavior.
 
 ## Commands
 
 - Local dev: `npx vercel dev`, then open http://localhost:3000 (the front end fetches `/api/big12`, so opening `index.html` directly from disk won't load data).
-- Hit the API alone: `curl http://localhost:3000/api/big12` (optional `?season=YYYY`; default season is the current year, or the previous year in Jan–Feb).
+- Hit the API alone: `curl http://localhost:3000/api/big12` or `/api/ncaa` (optional `?season=YYYY`; default season is the current year, or the previous year in Jan–Feb). The Top 15 page is at http://localhost:3000/ncaa.html (no `cleanUrls`, so the `.html` is required).
 - Deploy: every push to `main` auto-deploys to production on the `big12-live-odds` Vercel project. Commit/push only when asked.
 
-Files must stay at the repo root (`index.html`, `api/big12.js`). Past history shows uploads landing in nested `big12-title-race/` folders, which breaks the Vercel deploy.
+Files must stay at the repo root (`index.html`, `ncaa.html`, `api/big12.js`, `api/ncaa.js`). Past history shows uploads landing in nested `big12-title-race/` folders, which breaks the Vercel deploy.
 
 ## Architecture
 
@@ -34,3 +38,17 @@ Fetches ESPN's undocumented public JSON feeds in parallel: the 16 team schedules
 - `render()` draws the race, "Rest of the Big 12" (`renderRest`) and the slate; `renderTitle()` drives all title-game, picks, scenario, playoff and focus sections.
 - Who's "in the race" is decided by odds, not record: `splitRace()` runs the current-odds simulation first (`baseSim`, cached per data update and reused by `renderTitle`) and keeps teams with ≥ `RACE_MIN` (1%) title-game chance or ESPN playoff % ≥ 1. The slate and the `tracked` styling follow that set.
 - Viewer state lives in `localStorage` keys `b12-picks`, `b12-focus`, `b12-ccgpen` (all reads/writes wrapped in try/catch).
+
+### Top 15 API (`api/ncaa.js`)
+Fetches ESPN's `rankings` feed, the FPI power index and the current FBS scoreboard (`scoreboard?groups=80`; once every game on it is final, next week's too) in parallel. `readPolls` keeps this season's CFP and AP polls (any season if neither matches). It fetches the regular-season and postseason (`seasontype=3`) schedules for the union of both polls' top `TOP` (15) ("detailed" teams), then one `summary?event=` per unplayed game, same fields as the Big 12 API. If ESPN posts no predictor, the win chance is estimated from FPI (`HFA`, `FPI_SD`) and the game gets `est: true`. Opponents not set yet have placeholder ids ("-1", "-2"; `isTbd`) and get no summary or odds. Returns `{ updated, season, source, poll, polls, teams, games }`:
+- `poll`: the default poll type (`"cfp"` when available, else `"ap"`). `polls.cfp` / `polls.ap`: `{ name, short, week, date, ranks: [{ id, rank, prev }] }` (full top 25; `prev` 0 = unranked last week).
+- `teams` (map by id): every team of interest = detailed teams, everyone ranked in either poll, and every FPI playoff % ≥ `CONTENDER_MIN` (0.5). Each has `confId` / `conf` / `kind` (`"P4"`, `"G6"`, `"ND"`, `"IND"` from the `P4` / `G6` id sets), `rec` (freshest record string), FPI `playoff` / `winConf` / `winTitle` / `fpi`, `color` / `alt`. Detailed teams also have `detailed: true`, `w,l` computed from schedules, and `standing` (ESPN's "1st in SEC"). Team info is merged by `note()` from rankings, FPI, schedules, scoreboard and summaries; an unranked contender on a bye gets its conference from one extra schedule call.
+- `games`: detailed teams' unplayed games and last-3-day finals, plus this week's scoreboard games involving any team of interest (`wk: true` marks scoreboard-week games). `conf: true` when both teams share a P4/G6 conference. Sides carry `rec`, `color` / `alt`; ranks are not on sides (the page looks them up in the chosen poll). `note` is ESPN's first event note: either an event name ("SEC Championship", playoff rounds) or a TV-window note ("FLEX: …"). The page tells them apart with `eventNote`.
+- Same null stripping and edge cache as the Big 12 API. The rankings feed ignores `?season`, so it always returns the latest polls.
+
+### Top 15 front end (`ncaa.html`)
+Same polling loop as `index.html`, hitting `/api/ncaa`. `render()` builds `RANK` from the chosen poll (`pollType`, switch in the top-15 section) and draws the ranked table (`renderTable`), "Ranked 16–25" (`renderNext`, each team's scoreboard-week game via `weekGame`), the slate (`renderSlate` / `gameCard`), the projected bracket (`renderBracket`) and the rooting guide (`renderGuide`). Team colors come from the API rather than a hard-coded table: `usable` drops near-black/near-white colors to the secondary color, then gray.
+- Playoff model (`buildModel`, rebuilt once per data update into `MODEL`): each contender's ESPN playoff chance splits into `c` (P4 conference title, or the G6 bid) and `g` (at-large if not), `p = c + (1 − c)g`. Pools: one per P4 conference plus `g6` for the single G6 bid. `outcome(M, game, winnerId)` returns `{ c, g }` for every contender under one result: `split()` moves the playing teams' `g` (`K_AL`) and, in conference games, `c` (`K_CONF`; title games are 1/0; G6 bids use `K_G6` in any game), keeping the odds-weighted mixture at today's value. Each pool is then rescaled to stay at one title or bid, and at-large mass is conserved (seven spots) by shifting other teams' `g` in proportion to `g(1 − g)`. `M.games` holds both results for every unplayed scoreboard-week game with a contender.
+- `projectField`: P4 champions = highest `winConf` per conference, G6 bid = highest G6 `playoff`, Notre Dame if ranked ≤ 12, then the highest `g` for at-large; seeded by the chosen poll's rank. The bracket shows quarterfinal pods in semifinal order (1/8/9 with 4/5/12, 2/7/10 with 3/6/11) and the first four out.
+- Rooting guide: options are the four P4 conferences, Notre Dame and the Group of 6 (`GROUPS`), plus any contender (`team:<id>`). A group's value is 1 + its members' at-large chances; a team's is its playoff chance. Each game's two results are re-centered on today's value (`center`), rows sort by swing × √(q(1 − q)), and the first 8 show by default. The G6 always has exactly one spot, so when no game moves its count it switches to "race mode" (which games decide who gets it).
+- Viewer state: `localStorage` keys `ncaa-poll` and `ncaa-guide` (wrapped in `store`).
