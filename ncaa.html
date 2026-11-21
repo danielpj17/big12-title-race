@@ -18,6 +18,7 @@
   --fin-0: #3d8a5a; --fin-1: #8aab55; --fin-2: #d2b84a; --fin-3: #d08a4a; --fin-4: #c25b4f; --fin-5: #8e3a36; --fin-6: #5a2427;
   --fint-0: #ffffff; --fint-1: #17200d; --fint-2: #2a2205; --fint-3: #2a1605; --fint-4: #ffffff; --fint-5: #ffffff; --fint-6: #ffffff;
   --heat-l: 36%; --heat-bg: .10; /* win-chance gradient: hue 0 (red, 0%) to 120 (green, 100%) */
+  --wire: #b4c0d3; /* bracket connector lines */
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -28,6 +29,7 @@
   --fin-0: #3f8a5c; --fin-1: #839f57; --fin-2: #bfa74c; --fin-3: #bf824b; --fin-4: #b3584d; --fin-5: #873b37; --fin-6: #5c2a2c;
   --fint-0: #ffffff; --fint-1: #17200d; --fint-2: #2a2205; --fint-3: #2a1605; --fint-4: #ffffff; --fint-5: #ffffff; --fint-6: #ffffff;
   --heat-l: 62%; --heat-bg: .14;
+  --wire: #3a4a66;
   color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #0b1019; --surface: #121a27; --ink: #e6ecf5; --muted: #93a0b5; --line: #243045;
@@ -36,6 +38,7 @@
   --fin-0: #3f8a5c; --fin-1: #839f57; --fin-2: #bfa74c; --fin-3: #bf824b; --fin-4: #b3584d; --fin-5: #873b37; --fin-6: #5c2a2c;
   --fint-0: #ffffff; --fint-1: #17200d; --fint-2: #2a2205; --fint-3: #2a1605; --fint-4: #ffffff; --fint-5: #ffffff; --fint-6: #ffffff;
   --heat-l: 62%; --heat-bg: .14;
+  --wire: #3a4a66;
   color-scheme: dark; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.45; }
 .wrap { max-width: 1080px; margin: 0 auto; padding-block: 20px 40px;
@@ -173,21 +176,65 @@ th small { display: block; font-weight: 500; text-transform: none; letter-spacin
 .meta span { white-space: nowrap; }
 .meta .venue { white-space: normal; }
 
-/* projected bracket */
-.bracket { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.pod { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
-.pod h3, .bpanel h3 { font: 600 11px var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0; }
-.pod .fr { display: grid; gap: 6px; border-top: 1px dashed var(--line); padding-top: 8px; }
-.pod .fr-h { font-size: 11px; color: var(--muted); font-weight: 600; }
-.bteam { display: grid; grid-template-columns: 24px 6px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
-.bteam .seed { font: 700 20px var(--display); text-align: right; line-height: 1; }
-.bteam .chip { height: 24px; }
-.bteam .nm { font: 700 18px var(--display); line-height: 1.05; min-width: 0; overflow-wrap: anywhere; }
-.bteam .nm small { display: block; font: 500 11px var(--body); color: var(--muted); margin-top: 2px; }
-.bteam .nm .rk { font: 600 11px var(--body); color: var(--muted); margin-left: 4px; }
-.bteam .pv { font: 700 16px var(--display); text-align: right; }
-.bteam .pv small { display: block; font: 500 10px var(--body); color: var(--muted); }
-.bteam.bye .seed { color: var(--accent); }
+/* projected bracket: seven columns, the two halves converging on the championship in the middle.
+   Columns (left to right): first round, quarterfinals, semifinals, championship, semifinals, quarterfinals, first round.
+   Every slot has a fixed height so match centers line up across columns for the connector lines. */
+.bk { --gap: 16px; --slot: 46px; display: grid; column-gap: var(--gap); row-gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.25fr) repeat(3, minmax(0, 1fr)); }
+.bk-h { grid-row: 1; font: 600 10px var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); text-align: center; }
+.bk-h.h-f { color: var(--accent); }
+.bk-col { grid-row: 2; position: relative; display: flex; flex-direction: column; justify-content: space-around; min-height: 288px; min-width: 0; }
+.bk-col.sf, .bk-col.fin { justify-content: center; }
+.bk .h-l1, .bk .c-l1 { grid-column: 1; } .bk .h-l2, .bk .c-l2 { grid-column: 2; } .bk .h-l3, .bk .c-l3 { grid-column: 3; }
+.bk .h-f, .bk .c-f { grid-column: 4; }
+.bk .h-r3, .bk .c-r3 { grid-column: 5; } .bk .h-r2, .bk .c-r2 { grid-column: 6; } .bk .h-r1, .bk .c-r1 { grid-column: 7; }
+.m { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.r1 .m { top: calc(var(--slot) / 2); }   /* first-round game lines up with the quarterfinal's "winner of" slot */
+.fin .m { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.slot { height: var(--slot); box-sizing: border-box; display: grid; grid-template-columns: 16px 4px minmax(0, 1fr); align-items: center; gap: 0 6px; padding: 4px 8px; overflow: hidden; }
+.slot + .slot { border-top: 1px solid var(--line); }
+.slot .sd { font: 700 15px var(--display); text-align: right; }
+.slot.bye .sd { color: var(--accent); }
+.slot .chip { width: 4px; height: 26px; }
+.slot .nm { min-width: 0; font: 700 15px var(--display); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slot .nm small { display: block; font: 500 10px var(--body); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.slot.tbd { display: flex; align-items: center; font: italic 500 11px/1.25 var(--body); color: var(--muted); }
+/* connector lines; the left half flows right toward the middle, the right half mirrors it */
+.bk .r1 .m::after, .bk .sf .m::before, .bk .sf .m::after, .bk .qf::after { content: ""; position: absolute; border: 0 solid var(--wire); pointer-events: none; }
+.bk .r1 .m::after { top: 50%; width: var(--gap); border-top-width: 2px; }
+.bk .qf::after { top: 25%; bottom: 25%; width: calc(var(--gap) / 2); border-top-width: 2px; border-bottom-width: 2px; }
+.bk .sf .m::before { top: 50%; width: calc(var(--gap) / 2); border-top-width: 2px; }
+.bk .sf .m::after { top: 50%; width: var(--gap); border-top-width: 2px; }
+.bk .left.r1 .m::after, .bk .left.qf::after, .bk .left.sf .m::after { left: 100%; }
+.bk .left.qf::after { border-right-width: 2px; }
+.bk .left.sf .m::before { right: 100%; }
+.bk .right.r1 .m::after, .bk .right.qf::after, .bk .right.sf .m::after { right: 100%; }
+.bk .right.qf::after { border-left-width: 2px; }
+.bk .right.sf .m::before { left: 100%; }
+.bpanel h3 { font: 600 11px var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0; }
+/* narrower screens: stack the halves (each flowing left to right), championship underneath */
+@media (max-width: 979px) {
+  .bk { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bk-col { min-height: 288px; }
+  .bk .h-l1 { grid-area: 1 / 1; } .bk .h-l2 { grid-area: 1 / 2; } .bk .h-l3 { grid-area: 1 / 3; }
+  .bk .c-l1 { grid-area: 2 / 1; } .bk .c-l2 { grid-area: 2 / 2; } .bk .c-l3 { grid-area: 2 / 3; }
+  .bk .h-r1 { grid-area: 3 / 1; } .bk .h-r2 { grid-area: 3 / 2; } .bk .h-r3 { grid-area: 3 / 3; }
+  .bk .c-r1 { grid-area: 4 / 1; } .bk .c-r2 { grid-area: 4 / 2; } .bk .c-r3 { grid-area: 4 / 3; }
+  .bk .h-f { grid-area: 5 / 1 / 6 / -1; } .bk .c-f { grid-area: 6 / 1 / 7 / -1; min-height: 0; align-items: center; }
+  .bk .h-r1, .bk .h-r2, .bk .h-r3, .bk .h-f { margin-top: 14px; }
+  .c-f .m { width: min(100%, 320px); }
+  .bk .right.r1 .m::after, .bk .right.qf::after { right: auto; left: 100%; }
+  .bk .right.qf::after { border-left-width: 0; border-right-width: 2px; }
+  .bk .right.sf .m::before { left: auto; right: 100%; }
+  .bk .sf .m::after { display: none; }
+}
+@media (max-width: 520px) {
+  .bk { --gap: 12px; }
+  .slot { grid-template-columns: 13px 4px minmax(0, 1fr); gap: 0 5px; padding: 4px 6px; }
+  .slot .sd, .slot .nm { font-size: 14px; }
+  .slot .nm small { font-size: 9px; }
+  .slot.tbd { font-size: 10.5px; }
+}
 .bside { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
 .bpanel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; align-content: start; }
 .bline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
@@ -255,7 +302,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   #top-table td[data-label]::before {
     content: attr(data-label); display: block; margin-bottom: 6px;
     font: 600 10px var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-  .bracket, .bside { grid-template-columns: minmax(0, 1fr); }
+  .bside { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
   .wrap { gap: 24px; padding-block: 14px 32px; }
@@ -345,7 +392,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
       <h2>Projected bracket</h2>
       <p id="bracket-note">If the season ended with ESPN's favorites. The top four seeds get first-round byes; seeds 5–8 host the first round.</p>
     </div>
-    <div class="bracket" id="bracket"></div>
+    <div class="bk" id="bracket" role="group" aria-label="Projected playoff bracket"></div>
     <div class="bside">
       <div class="bpanel"><h3>How the field was picked</h3><div id="bracket-how"></div></div>
       <div class="bpanel"><h3>First four out</h3><div id="bracket-out"></div></div>
@@ -800,25 +847,25 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   // ---------- projected bracket ----------
   function projectField(M) {
     const T = M.T, field = [];
-    const add = (t, how, odds) => field.push({ t, how, odds });
+    const add = (t, how, tag, odds) => field.push({ t, how, tag, odds });
     for (const [cid, name] of P4_CONFS) {
       const members = T.filter((t) => t.kind === "P4" && t.confId === cid);
       if (!members.length) continue;
       const best = members.reduce((a, b) => ((b.winConf || 0) > (a.winConf || 0) ? b : a));
-      add(best, `${name} champion`, `${pctTxt(best.winConf)} to win the ${name}`);
+      add(best, `${name} champion`, `${name} champ`, `${pctTxt(best.winConf)} to win the ${name}`);
     }
     const g6 = T.filter((t) => t.kind === "G6");
     if (g6.length) {
       const best = g6.reduce((a, b) => (b.playoff > a.playoff ? b : a));
-      add(best, "Group of 6 bid", `${pctTxt(best.playoff)} to make the playoff`);
+      add(best, "Group of 6 bid", "G6 bid", `${pctTxt(best.playoff)} to make the playoff`);
     }
     const inField = new Set(field.map((f) => f.t.id));
     const nd = data.teams[ND_ID];
-    if (nd && !inField.has(ND_ID) && rankOf(ND_ID) && rankOf(ND_ID) <= 12) { add(nd, "In with a top-12 finish", `ranked No. ${rankOf(ND_ID)}`); inField.add(ND_ID); }
+    if (nd && !inField.has(ND_ID) && rankOf(ND_ID) && rankOf(ND_ID) <= 12) { add(nd, "In with a top-12 finish", "Top-12 finish", `ranked No. ${rankOf(ND_ID)}`); inField.add(ND_ID); }
     // at-large: the teams most likely to get in without winning their conference
     const pool = T.map((t, i) => ({ t, al: M.g[i] })).filter((x) => !inField.has(x.t.id)).sort((a, b) => b.al - a.al);
     const open = Math.max(0, 12 - field.length);
-    for (const x of pool.slice(0, open)) add(x.t, "At-large", `${pctTxt(x.al * 100)} at-large chance`);
+    for (const x of pool.slice(0, open)) add(x.t, "At-large", "At-large", `${pctTxt(x.al * 100)} at-large chance`);
     const out = pool.slice(open, open + 4);
     // straight seeding by the current rankings; unranked teams go last, by playoff chance
     field.sort((a, b) => (rankOf(a.t.id) || 99) - (rankOf(b.t.id) || 99) || b.t.playoff - a.t.playoff);
@@ -826,16 +873,27 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     return { field, out };
   }
 
-  function bteam(f, bye) {
-    const row = el("div", "bteam" + (bye ? " bye" : ""));
-    const chip = chipEl(f.t);
-    const nm = el("div", "nm"); nm.append(document.createTextNode(f.t.short));
-    const rk = rankOf(f.t.id); nm.append(el("span", "rk num", rk ? `No. ${rk}` : "unranked"));
-    nm.append(el("small", null, `${f.how} · ${recText(f.t) || "—"}`));
-    const pv = el("div", "pv num", pctTxt(f.t.playoff)); pv.append(el("small", null, "playoff odds"));
-    pv.title = "ESPN's chance this team makes the playoff";
-    row.append(el("span", "seed num", f.seed), chip, nm, pv);
-    return row;
+  // A bracket side is either one known team (a seed) or the winner of an earlier game, kept as the list of teams
+  // that could arrive there ("Winner of IU vs. TENN", "Winner of UGA vs. IU/TENN").
+  const known = (f) => ({ teams: [f] });
+  const winnerOf = (game) => ({ teams: [...game.top.teams, ...game.bot.teams],
+    label: `Winner of ${game.top.teams.map((f) => f.t.abbr).join("/")} vs. ${game.bot.teams.map((f) => f.t.abbr).join("/")}`,
+    full: `Winner of ${game.top.teams.map((f) => f.t.short).join(" / ")} vs. ${game.bot.teams.map((f) => f.t.short).join(" / ")}` });
+  function slotEl(side, bye) {
+    if (side.label) { const s = el("div", "slot tbd", side.label); s.title = side.full; return s; }
+    const f = side.teams[0], s = el("div", "slot" + (bye ? " bye" : ""));
+    const nm = el("span", "nm", f.t.short); nm.append(el("small", null, f.tag));
+    const rk = rankOf(f.t.id);
+    s.title = `No. ${f.seed} seed: ${f.t.short} (${recText(f.t) || "—"}, ${rk ? "ranked No. " + rk : "unranked"}) · ${f.how} · ${pctTxt(f.t.playoff)} to make the playoff (ESPN)` + (bye ? " · first-round bye" : "");
+    s.append(el("span", "sd num", f.seed), chipEl(f.t), nm);
+    return s;
+  }
+  function matchEl(game, label) {
+    const m = el("div", "m"); m.setAttribute("role", "group");
+    const nameOfSide = (sd) => (sd.label ? sd.full : `No. ${sd.teams[0].seed} ${sd.teams[0].t.short}`);
+    m.setAttribute("aria-label", `${label}: ${nameOfSide(game.top)} vs. ${nameOfSide(game.bot)}`);
+    m.append(slotEl(game.top, game.bye), slotEl(game.bot));
+    return m;
   }
 
   function renderBracket() {
@@ -848,15 +906,24 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     if (field.length < 12) { box.append(el("p", "muted", "Not enough playoff odds from ESPN yet to project a bracket.")); return; }
     const recs = records(); for (const f of field) f.t = recs[f.t.id] || f.t;
     const S = (n) => field[n - 1];
-    $("bracket-note").textContent = `If the season ended with ESPN's favorites, seeded by the current ${pollType === "cfp" ? "CFP rankings" : "AP poll"}. The top four seeds get first-round byes; seeds 5–8 host the first round. Winners of the top and bottom pairs of boxes meet in the semifinals.`;
-    // quarterfinal pods in bracket order: 1 & 4 meet in one semifinal, 2 & 3 in the other
-    for (const top of [1, 4, 2, 3]) {
-      const hi = 9 - top, lo = 8 + top;    // 1: 8 v 9, 2: 7 v 10, 3: 6 v 11, 4: 5 v 12
-      const pod = el("div", "pod");
-      pod.append(el("h3", null, `Quarterfinal · ${top} seed`), bteam(S(top), true));
-      const fr = el("div", "fr"); fr.append(el("div", "fr-h", `vs. first-round winner, at No. ${hi} seed`), bteam(S(hi)), bteam(S(lo)));
-      pod.append(fr); box.append(pod);
-    }
+    $("bracket-note").textContent = `If the season ended with ESPN's favorites, seeded by the current ${pollType === "cfp" ? "CFP rankings" : "AP poll"}. The top four seeds get first-round byes; seeds 5–8 host the first round.`;
+    // 12-team bracket: first round 8v9, 5v12 (left) and 7v10, 6v11 (right); seeds 1-4 wait in the quarterfinals;
+    // 1/8/9 meets 4/5/12 and 2/7/10 meets 3/6/11 in the semifinals
+    const r1 = (h) => ({ top: known(S(h)), bot: known(S(17 - h)) });
+    const qf = (s) => ({ top: known(S(s)), bot: winnerOf(r1(9 - s)), bye: true });
+    const sf = (a, b) => ({ top: winnerOf(qf(a)), bot: winnerOf(qf(b)) });
+    const fin = { top: winnerOf(sf(1, 4)), bot: winnerOf(sf(2, 3)) };
+    const head = (cls, text) => box.append(el("div", "bk-h " + cls, text));
+    const col = (cls, games, label) => { const c = el("div", "bk-col " + cls); for (const g of games) c.append(matchEl(g, label)); box.append(c); };
+    head("h-l1", "First round"); head("h-l2", "Quarterfinals"); head("h-l3", "Semifinals"); head("h-f", "Championship");
+    head("h-r3", "Semifinals"); head("h-r2", "Quarterfinals"); head("h-r1", "First round");
+    col("c-l1 r1 left", [r1(8), r1(5)], "First round");
+    col("c-l2 qf left", [qf(1), qf(4)], "Quarterfinal");
+    col("c-l3 sf left", [sf(1, 4)], "Semifinal");
+    col("c-f fin", [fin], "National championship");
+    col("c-r3 sf right", [sf(2, 3)], "Semifinal");
+    col("c-r2 qf right", [qf(2), qf(3)], "Quarterfinal");
+    col("c-r1 r1 right", [r1(7), r1(6)], "First round");
     const order = ["champion", "Group of 6", "top-12", "At-large"];
     for (const key of order) for (const f of field.filter((x) => x.how.includes(key))) {
       const line = el("div", "bline"), who = el("span", "who");
