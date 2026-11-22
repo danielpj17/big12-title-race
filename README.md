@@ -24,7 +24,7 @@ browser (ncaa.html)   ──fetch──▶  /api/ncaa   (Vercel function)  ─�
 
 ## What's on the page
 
-- **The race**: every team with at least a 1% chance to make the title game (from the simulation at current odds) or the playoff (ESPN's playoff %), with remaining games and win chances, most likely finish, and the probability of every possible final record.
+- **The race**: every team with at least a 1% chance to make the title game (from the simulation at current odds) or the playoff (ESPN's playoff %), with its last result (W/L, final score, opponent), remaining games and win chances, most likely finish, and the probability of every possible final record.
 - **Rest of the Big 12**: a collapsed list of every other team with its records, its title-game chance ("no realistic path" when it never reached the title game in 10,000 simulated finishes, which is not a proof of elimination), and any remaining games against teams in the race (spoilers).
 - **The slate**: remaining games by date with kickoff time (viewer's time zone), venue, TV, line, and a win-chance bar in team colors (away team on the left). Live scores and live win probability during games.
 - **Title game picture**
@@ -37,7 +37,7 @@ browser (ncaa.html)   ──fetch──▶  /api/ncaa   (Vercel function)  ─�
 ## The Top 15 page
 
 - **CFP rankings / AP poll switch**: everything on the page follows the chosen poll (saved in the viewer's browser). The CFP option is disabled until the committee's rankings start in November.
-- **The top 15**: in ranking order. Each row shows the rank and its change since last week, overall record and conference standing, ESPN's chance to make the playoff (with its conference-title and national-title chances), remaining games with ESPN win chances and the opponent's ranking, the most likely final record, and the probability of every possible final record.
+- **The top 15**: in ranking order. Each row shows the rank and its change since last week, overall record and conference standing, the last result (W/L, final score, opponent), ESPN's chance to make the playoff (with its conference-title and national-title chances), remaining games with ESPN win chances and the opponent's ranking, the most likely final record, and the probability of every possible final record.
 - **Ranked 16–25**: a collapsed list with each team's record, rank change, this week's game (time and win chance, live score, or final) and playoff chance.
 - **The slate**: every game involving a top-15 team, plus finals from the last three days, laid out like the Big 12 slate. Current rankings appear next to team names, and a game between two top-15 teams is tagged. Conference title games and, once they're set, bowl and playoff games appear automatically.
 - **Projected bracket**: the 12-team field if the season ended with ESPN's favorites, drawn as a bracket whose two halves converge on the championship in the middle (stacked on narrower screens). Later rounds aren't predicted: each open slot reads "Winner of XX vs. YY". Also shows how each team got in and the first four out.

@@ -25,6 +25,14 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+// one team's side of a completed schedule game, for the page's "last game" line
+function resultOf(e, c, me, op) {
+  const sc = (x) => num(x.score != null && typeof x.score === "object" ? x.score.value ?? x.score.displayValue : x.score);
+  const t = op.team || {};
+  return { date: e.date, id: op.id, abbr: t.abbreviation, name: t.location || t.shortDisplayName || t.displayName,
+    at: me.homeAway === "home" || c.neutralSite ? "vs" : "@", pf: sc(me), pa: sc(op), w: me.winner === true };
+}
+
 // ESPN uses placeholder ids ("-1", "-2") for opponents not set yet (title games, playoff rounds)
 const isTbd = (id) => !/^\d+$/.test(String(id || ""));
 
@@ -135,20 +143,23 @@ module.exports = async (req, res) => {
     const records = {};
     scheds.forEach(([reg, post], i) => {
       const id = detailed[i];
-      let w = 0, l = 0;
+      let w = 0, l = 0, last = null;
       for (const e of [...(reg.events || []), ...(post.events || [])]) {
         const c = e.competitions && e.competitions[0]; if (!c) continue;
         const me = c.competitors.find((x) => x.id === id);
         const op = c.competitors.find((x) => x.id !== id);
         if (!me || !op) continue;
         const done = !!c.status.type.completed;
-        if (done && c.competitors.some((x) => x.winner === true)) me.winner === true ? w++ : l++;
+        if (done && c.competitors.some((x) => x.winner === true)) {
+          me.winner === true ? w++ : l++;
+          if (!last || new Date(e.date) >= new Date(last.date)) last = resultOf(e, c, me, op);
+        }
         const recent = done && now - new Date(e.date) < RECENT_MS;
         if ((!done || recent) && !gameMap.has(e.id)) gameMap.set(e.id, { e, c });
       }
       const t = reg.team || {};
       note(id, t, { standing: t.standingSummary || null });
-      records[id] = { w, l };
+      records[id] = { w, l, last };
     });
 
     const weekIds = new Set();
@@ -262,6 +273,7 @@ module.exports = async (req, res) => {
         confId, conf: id === ND ? "Independent" : CONF_NAMES[confId] || t.confLabel || null, kind: kindOf(id, confId),
         standing: t.standing, rec: t.rec,
         detailed: records[id] ? true : null, w: records[id] ? records[id].w : null, l: records[id] ? records[id].l : null,
+        last: records[id] ? records[id].last : null,
         fpi: o.fpi, playoff: o.playoff, winConf: o.winConf, winTitle: o.winTitle,
       };
     }

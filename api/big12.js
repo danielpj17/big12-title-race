@@ -17,6 +17,14 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+// one team's side of a completed schedule game, for the page's "last game" line
+function resultOf(e, c, me, op) {
+  const sc = (x) => num(x.score != null && typeof x.score === "object" ? x.score.value ?? x.score.displayValue : x.score);
+  const t = op.team || {};
+  return { date: e.date, id: op.id, abbr: t.abbreviation, name: t.location || t.shortDisplayName || t.displayName,
+    at: me.homeAway === "home" || c.neutralSite ? "vs" : "@", pf: sc(me), pa: sc(op), w: me.winner === true };
+}
+
 module.exports = async (req, res) => {
   try {
     const now = new Date();
@@ -51,7 +59,7 @@ module.exports = async (req, res) => {
     const results = new Map(); // every completed game this season: [homeId, awayId, winnerId, conf]
     scheds.forEach((s, i) => {
       const id = String(IDS[i]);
-      let w = 0, l = 0, cw = 0, cl = 0;
+      let w = 0, l = 0, cw = 0, cl = 0, last = null;
       for (const e of s.events || []) {
         const c = e.competitions[0];
         const me = c.competitors.find((x) => x.id === id);
@@ -67,6 +75,7 @@ module.exports = async (req, res) => {
           const won = me.winner === true;
           won ? w++ : l++;
           if (BIG12.has(op.id)) won ? cw++ : cl++;
+          if (c.competitors.some((x) => x.winner === true) && (!last || new Date(e.date) >= new Date(last.date))) last = resultOf(e, c, me, op);
         }
         const recent = c.status.type.completed && now - new Date(e.date) < RECENT_MS;
         if ((!c.status.type.completed || recent) && !gameMap.has(e.id)) {
@@ -77,7 +86,7 @@ module.exports = async (req, res) => {
       teams.push({
         id, name: t.displayName, short: t.location, abbr: t.abbreviation,
         color: t.color ? "#" + t.color : null,
-        w, l, cw, cl,
+        w, l, cw, cl, last,
       });
     });
 

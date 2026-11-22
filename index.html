@@ -19,6 +19,7 @@
   --fint-0: #ffffff; --fint-1: #17200d; --fint-2: #2a2205; --fint-3: #2a1605; --fint-4: #ffffff; --fint-5: #ffffff; --fint-6: #ffffff;
   --route-1: #1c5dd0; --route-2: #6f9ae0; --route-3: #b9c9e4;
   --heat-l: 36%; --heat-bg: .10; /* win-chance gradient: hue 0 (red, 0%) to 120 (green, 100%) */
+  --win: #2f7d4b; --loss: #b8433a; /* W / L badges (white text, both themes) */
   --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -88,6 +89,12 @@ th { font: 600 11px var(--body); text-transform: uppercase; letter-spacing: .06e
 .tname { font-family: var(--display); font-weight: 700; font-size: 20px; line-height: 1; }
 .rec { font-family: var(--display); font-size: 20px; font-weight: 600; white-space: nowrap; }
 .rec small { font-family: var(--body); font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+/* last game under the record: W/L badge, final score, opponent */
+.last { margin-top: 6px; font: 500 12px var(--body); color: var(--muted); white-space: nowrap; }
+.last .res { display: inline-block; min-width: 17px; margin-right: 5px; padding: 1px 4px; border-radius: 3px; font: 700 11px/1.3 var(--body); text-align: center; color: #fff; }
+.last .res.w { background: var(--win); }
+.last .res.l { background: var(--loss); }
+.last b { color: var(--ink); font-weight: 600; }
 .pips { display: flex; gap: 6px; }
 .pip { display: grid; justify-items: center; gap: 2px; width: 58px; padding: 4px 0; border-radius: 6px; border: 1px solid var(--line); }
 .pip .opp { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
@@ -663,6 +670,28 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   };
   const ord = (n) => ["", "1st", "2nd", "3rd", "4th"][n] || (n > 4 ? "OT" : "");
 
+  // a team's most recent final: the schedule's, unless a just-finished game it hasn't counted yet is newer
+  function lastGame(t) {
+    let L = t.last || null;
+    for (const g of data.games) {
+      if (!g.recordPending || !g.completed || !(g.home.winner || g.away.winner)) continue;
+      const home = g.home.id === t.id; if (!home && g.away.id !== t.id) continue;
+      if (L && new Date(L.date) >= new Date(g.date)) continue;
+      const me = home ? g.home : g.away, op = home ? g.away : g.home;
+      L = { date: g.date, id: op.id, abbr: op.abbr, name: op.short, at: home || g.neutral ? "vs" : "@", pf: me.score, pa: op.score, w: me.winner };
+    }
+    return L;
+  }
+  // "W 45-7 vs MSU" (winner's score first, like ESPN)
+  function lastEl(t) {
+    const L = lastGame(t); if (!L) return null;
+    const hi = Math.max(L.pf ?? 0, L.pa ?? 0), lo = Math.min(L.pf ?? 0, L.pa ?? 0);
+    const e = el("div", "last");
+    e.append(el("span", "res " + (L.w ? "w" : "l"), L.w ? "W" : "L"), el("b", "num", `${hi}-${lo}`), document.createTextNode(` ${L.at} ${L.abbr || L.name}`));
+    e.title = `Last game: ${L.w ? "beat" : "lost to"} ${L.name} ${L.pf}-${L.pa}${L.at === "@" ? " on the road" : ""}, ${fmtDay.format(new Date(L.date))}`;
+    return e;
+  }
+
   // ---------- render ----------
   function render() {
     const recs = records(), tm = teamById();
@@ -683,6 +712,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
       team.append(chip, el("span", "tname", r.short)); tdTeam.append(team);
 
       const tdRec = el("td"); const rec = el("div", "rec num", `${r.cw}-${r.cl}`); rec.append(el("small", null, `conf · ${r.w}-${r.l}`)); tdRec.append(rec);
+      const lg = lastEl(r); if (lg) tdRec.append(lg);
 
       const tdPips = el("td"); const pips = el("div", "pips");
       if (!games.length) pips.append(el("span", "muted", "Regular season done"));
