@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Live men's college basketball tracker: Big 12 standings and the national top 15, with the last week's results, the next week's games, ESPN win chances and BPI projections.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Big 12 Basketball</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Men's basketball: one page, two views (?view=ncaa for the national top 15). Same look as the football pages. */
+:root {
+  --bg: #eef2f8; --surface: #ffffff; --ink: #121a27; --muted: #586579; --line: #d4dce9;
+  --accent: #1c5dd0; --accent-soft: #dce7fb; --live: #d3263b; --live-soft: #fbe3e6; --warn: #9a6400;
+  --up: #2f7d4b; --down: #b8433a;
+  --win: #2f7d4b; --loss: #b8433a; /* W / L badges (white text, both themes) */
+  --heat-l: 36%; --heat-bg: .10; /* win-chance gradient: hue 0 (red, 0%) to 120 (green, 100%) */
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b1019; --surface: #121a27; --ink: #e6ecf5; --muted: #93a0b5; --line: #243045;
+  --accent: #6ea2ff; --accent-soft: #16264a; --live: #ff5c6f; --live-soft: #3a1a20; --warn: #e3b25a;
+  --up: #6cc98d; --down: #ff8579;
+  --heat-l: 62%; --heat-bg: .14;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0b1019; --surface: #121a27; --ink: #e6ecf5; --muted: #93a0b5; --line: #243045;
+  --accent: #6ea2ff; --accent-soft: #16264a; --live: #ff5c6f; --live-soft: #3a1a20; --warn: #e3b25a;
+  --up: #6cc98d; --down: #ff8579;
+  --heat-l: 62%; --heat-bg: .14;
+  color-scheme: dark; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 28px; }
+.wrap > * { min-width: 0; }
+h1, h2 { font-family: var(--display); font-weight: 700; letter-spacing: .01em; margin: 0; text-wrap: balance; }
+h1 { font-size: 40px; line-height: 1; text-transform: uppercase; }
+h2 { font-size: 22px; text-transform: uppercase; letter-spacing: .04em; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* sport + page switchers (same on every page) */
+.navs { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-bottom: -12px; }
+.sitenav { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.sitenav a { padding: 7px 18px; font: 600 13px var(--body); letter-spacing: .02em; color: var(--ink); text-decoration: none; }
+.sitenav a + a { border-left: 1px solid var(--line); }
+.sitenav a:hover:not([aria-current]) { background: var(--accent-soft); }
+.sitenav a[aria-current="page"] { background: var(--accent); color: var(--surface); }
+.sitenav a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 20px; }
+.sub { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent); letter-spacing: .02em; }
+.pill.snap { background: var(--line); color: var(--muted); }
+.pill.live { background: var(--live-soft); color: var(--live); }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.live .dot { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .pill.live .dot { animation: none; } }
+button { font: 600 12px var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.notice { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 10px 14px;
+  display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.notice b { color: var(--warn); }
+.section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 10px; }
+.section-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.why { margin: 0; color: var(--muted); font-size: 13px; }
+.viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 10px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; border-radius: 0; padding: 7px 12px; font-size: 13px; background: transparent; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.seg button:disabled { color: var(--muted); cursor: default; }
+
+/* team table */
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 900px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+th { font: 600 11px var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+th small { display: block; font-weight: 500; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+#team-table th:nth-child(3), #team-table th:nth-child(4) { width: 28%; }   /* share the game strips evenly */
+#team-table th:nth-child(5) { width: 17%; }
+.team { display: flex; align-items: center; gap: 10px; min-width: 160px; }
+.team .rank { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1; min-width: 24px; text-align: right; }
+.chip { width: 6px; height: 30px; border-radius: 2px; flex: none; }
+.tname { font-family: var(--display); font-weight: 700; font-size: 20px; line-height: 1; }
+.tsub { display: block; font: 500 12px var(--body); color: var(--muted); margin-top: 3px; white-space: nowrap; }
+.move.up { color: var(--up); }
+.move.down { color: var(--down); }
+.rec { font-family: var(--display); font-size: 20px; font-weight: 600; white-space: nowrap; line-height: 1; }
+.rec small { font-family: var(--body); font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+.last { margin-top: 6px; font: 500 12px var(--body); color: var(--muted); white-space: nowrap; }
+.last .res { display: inline-block; min-width: 17px; margin-right: 5px; padding: 1px 4px; border-radius: 3px; font: 700 11px/1.3 var(--body); text-align: center; color: #fff; }
+.last .res.w { background: var(--win); }
+.last .res.l { background: var(--loss); }
+.last b { color: var(--ink); font-weight: 600; }
+/* game pips: results (last 7 days) and upcoming games with win chance */
+.pips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pip { display: grid; justify-items: center; gap: 1px; min-width: 62px; padding: 4px 6px; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--line); }
+.pip .opp { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+.pip .p { font-family: var(--display); font-size: 18px; font-weight: 700; line-height: 1.05; white-space: nowrap; }
+.pip .day { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.pip.fav .p { color: var(--accent); }
+.pip.live { border-color: var(--live); }
+.pip.live .p, .pip.live .day { color: var(--live); }
+.pip.heat { background: hsl(var(--h) 70% 50% / var(--heat-bg)); }
+.pip.heat .p, .side .wp.heat, .heat-t.heat { color: hsl(var(--h) 75% var(--heat-l)); }
+.pip.res .p { font-size: 16px; }
+.pip.res.w { border-color: color-mix(in srgb, var(--win) 45%, var(--line)); }
+.pip.res.l { border-color: color-mix(in srgb, var(--loss) 45%, var(--line)); }
+.pip.res.w .p { color: var(--up); }
+.pip.res.l .p { color: var(--down); }
+.none { font-size: 13px; color: var(--muted); }
+/* ESPN outlook */
+.outl { min-width: 150px; }
+.outl .big { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1; }
+.outl small { display: block; font: 500 11px var(--body); color: var(--muted); margin-top: 3px; white-space: nowrap; }
+.outl small b { color: var(--ink); font-weight: 600; }
+
+/* collapsible lists */
+.rules { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px 16px; }
+.rules summary { cursor: pointer; padding: 10px 0; font: 600 14px var(--body); }
+.rules summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rest { margin-top: 12px; }
+.rest > .slate { padding: 4px 0 14px; }
+.next-list { display: grid; padding-bottom: 6px; }
+.next-row { display: grid; grid-template-columns: minmax(190px, 1fr) minmax(0, 1.8fr) 90px; align-items: center; gap: 6px 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+.next-row .team { min-width: 0; }
+.next-row .chip { height: 26px; }
+.next-row .tname { font-size: 18px; }
+.next-row .wkg { font-size: 13px; color: var(--muted); display: grid; gap: 3px; }
+.next-row .wkg .last { margin: 0; }
+.next-row .wkg .live { color: var(--live); font-weight: 600; }
+.next-row .wkg b { color: var(--ink); font-weight: 600; }
+.next-row .po { text-align: right; }
+.next-row .po b { display: block; font: 700 18px var(--display); line-height: 1; }
+.next-row .po small { font-size: 11px; color: var(--muted); }
+
+/* slate */
+.slate { display: grid; gap: 22px; }
+.day-h { font: 600 12px var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
+.games { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.game { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0; }
+.game.is-live { border-color: var(--live); box-shadow: 0 0 0 1px var(--live) inset; }
+.ghead { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.ghead .gleft { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.ghead .state-live { color: var(--live); }
+.ghead .state-final { color: var(--ink); }
+.tag { font: 600 11px var(--body); padding: 1px 7px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.side { display: grid; grid-template-columns: 6px 1fr auto auto; align-items: center; gap: 10px; }
+.side .chip { height: 22px; width: 6px; }
+.side .nm { font-family: var(--display); font-weight: 600; font-size: 19px; line-height: 1.1; min-width: 0; overflow-wrap: anywhere; }
+.side .nm .rk { font: 600 12px var(--body); color: var(--muted); margin-right: 5px; }
+.side .nm small { font: 500 11px var(--body); color: var(--muted); margin-left: 4px; }
+.side .sc { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1; min-width: 30px; text-align: right; }
+.side .wp { font-family: var(--display); font-weight: 600; font-size: 17px; min-width: 52px; text-align: right; color: var(--muted); }
+.side.fav .wp { color: var(--accent); }
+.side.loser .nm, .side.loser .sc { color: var(--muted); }
+.side.tracked .nm { font-weight: 700; }
+.wpbar { display: flex; gap: 2px; height: 20px; border-radius: 5px; overflow: hidden; }
+.wpbar i { display: flex; align-items: center; padding: 0 7px; font: 700 12px var(--display); font-style: normal;
+  letter-spacing: .02em; white-space: nowrap; overflow: hidden; min-width: 3px; }
+.wpbar i + i { justify-content: flex-end; }
+.meta { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12px; color: var(--muted); }
+.meta span { white-space: nowrap; }
+.meta .venue { white-space: normal; }
+footer { font-size: 12px; color: var(--muted); max-width: 80ch; display: grid; gap: 6px; }
+footer p { margin: 0; }
+
+/* ---------- phones and small tablets ---------- */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+@media (pointer: coarse) {
+  button { min-height: 40px; padding: 8px 12px; font-size: 13px; }
+  .seg button { min-height: 40px; }
+  .sitenav a { padding: 11px 16px; }
+  .rules summary { padding: 14px 0; }
+}
+@media (max-width: 820px) {
+  /* team table -> one card per team */
+  #team-table { min-width: 0; }
+  #team-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  #team-table tbody { display: block; }
+  #team-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 16px; padding: 14px; border-bottom: 1px solid var(--line); }
+  #team-table tr:last-child { border-bottom: 0; }
+  #team-table td { display: block; padding: 0; border: 0; min-width: 0; }
+  #team-table td[colspan] { grid-column: 1 / -1; }
+  #team-table td:nth-child(2) { text-align: right; align-self: center; }
+  #team-table td:nth-child(n+3) { grid-column: 1 / -1; }
+  #team-table .team { min-width: 0; }
+  .pip { flex: 1 1 62px; max-width: 100px; }
+  #team-table td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 6px;
+    font: 600 10px var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .outl small { white-space: normal; }
+}
+@media (max-width: 640px) {
+  .wrap { gap: 24px; padding-block: 14px 32px; }
+  h2 { font-size: 21px; }
+  header.top { gap: 10px; }
+  .status { width: 100%; justify-content: space-between; }
+  .pill { white-space: normal; line-height: 1.3; }
+  .section-head p { font-size: 12.5px; }
+  .game { padding: 12px; }
+  .viewbar .seg { display: flex; width: 100%; }
+  .viewbar .seg button { flex: 1 1 0; }
+  .next-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .next-row .wkg { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (max-width: 520px) {
+  h1 { font-size: 32px; }
+  .games { grid-template-columns: 1fr; }
+}
+@media (max-width: 380px) {
+  h1 { font-size: 28px; }
+  .tname { font-size: 18px; }
+  .sitenav a { padding: 9px 12px; }
+}
+</style>
+<meta name="theme-color" content="#eef2f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1019" media="(prefers-color-scheme: dark)">
+</head>
+<body>
+
+<div class="wrap">
+  <div class="navs">
+    <nav class="sitenav" aria-label="Sport">
+      <a href="./" id="nav-fb">Football</a>
+      <a href="mbb.html" id="nav-mbb" aria-current="page">Men's Basketball</a>
+    </nav>
+    <nav class="sitenav" aria-label="Pages">
+      <a href="mbb.html" id="nav-b12">Big 12</a>
+      <a href="mbb.html?view=ncaa" id="nav-ncaa">NCAA</a>
+    </nav>
+  </div>
+
+  <header class="top">
+    <div>
+      <h1 id="title">Big 12 Basketball</h1>
+      <p class="sub" id="sub"></p>
+    </div>
+    <div class="status">
+      <span id="pill" class="pill snap"><span class="dot"></span><span id="pill-text">Loading live data…</span></span>
+      <button id="refresh" type="button">Refresh now</button>
+    </div>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <section id="main">
+    <div class="section-head">
+      <h2 id="main-h">The standings</h2>
+      <p id="main-note"></p>
+    </div>
+    <div class="viewbar" id="pollbar" hidden>
+      <div class="seg" role="group" aria-label="Which poll to use">
+        <button type="button" id="poll-ap" aria-pressed="true">AP poll</button>
+        <button type="button" id="poll-usa" aria-pressed="false">Coaches poll</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="team-table">
+        <thead><tr><th>Team</th><th>Record</th><th>Last 7 days</th><th>Next up · win chance<small>next 7 days, or the next 3 games</small></th><th>ESPN outlook<small>BPI projection and résumé</small></th></tr></thead>
+        <tbody id="team-body"><tr><td colspan="5" class="muted">Loading live data…</td></tr></tbody>
+      </table>
+    </div>
+    <details class="rules rest" id="next" hidden>
+      <summary id="next-sum">Ranked 16–25</summary>
+      <div class="next-list" id="next-list"></div>
+    </details>
+  </section>
+
+  <section id="slate-section">
+    <div class="section-head">
+      <h2>Coming up</h2>
+      <p id="slate-note">Away team on top and on the left of each win-chance bar; home team below and on the right. Small numbers are current rankings. Times are in your time zone.</p>
+    </div>
+    <div id="slate" class="slate"></div>
+    <details class="rules rest" id="recent" hidden>
+      <summary id="recent-sum">Last 7 days</summary>
+      <div class="slate" id="recent-slate"></div>
+    </details>
+  </section>
+
+  <footer>
+    <p>Source: ESPN rankings, schedules, BPI matchup predictor and projections, live win probability and betting lines, updated by this site's own data feed.</p>
+    <p>ESPN outlook: projected final record and chance to win (or share) the conference regular-season title from ESPN's BPI; BPI rank (how good a team is); SOR, strength of record (how impressive its results are for its schedule); and its record against BPI's top 50. Conference and NCAA tournaments aren't covered yet.</p>
+    <p id="footer-updated"></p>
+    <p>Unofficial, fan-made tracker. Not affiliated with the Big 12 Conference, the NCAA or ESPN.</p>
+  </footer>
+</div>
+
+
+<script>
+(() => {
+  const VIEW = new URLSearchParams(location.search).get("view") === "ncaa" ? "ncaa" : "big12";
+  const NCAA = VIEW === "ncaa";
+  let data = null;          // filled by the first fetch from /api/mbb
+  let isLive = false;      // true once live data has arrived
+  let curInterval = 0;
+  const DAY = 24 * 3600 * 1000;
+
+  const $ = (id) => document.getElementById(id);
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} } };
+  let pollType = store.get("mbb-poll");            // "ap" | "usa"
+
+  // ---------- page chrome for the chosen view ----------
+  $("nav-fb").href = NCAA ? "ncaa.html" : "./";
+  $(NCAA ? "nav-ncaa" : "nav-b12").setAttribute("aria-current", "page");
+  document.title = NCAA ? "College Basketball Top 15" : "Big 12 Basketball";
+  $("title").textContent = NCAA ? "College Basketball Top 15" : "Big 12 Basketball";
+  $("sub").textContent = NCAA
+    ? "The 15 highest-ranked men's basketball teams: what they did in the last week, who they play next with ESPN's win chances, and ESPN's projections."
+    : "All 16 Big 12 men's basketball teams: what they did in the last week, who they play next with ESPN's win chances, and ESPN's projections.";
+  $("main-h").textContent = NCAA ? "The top 15" : "The standings";
+  $("pollbar").hidden = !NCAA;
+
+  // ---------- data helpers ----------
+  const poll = () => (data.polls[pollType] ? data.polls[pollType] : data.polls[data.poll]) || null;
+  let RANK = {};                                   // team id -> { rank, prev } in the poll on screen
+  const rankOf = (id) => (RANK[id] ? RANK[id].rank : null);
+  let GAME = {};
+  const done = (g) => g.completed || g.state === "post";
+  function records() {
+    const map = {};
+    for (const t of data.teams) map[t.id] = { ...t };
+    for (const g of data.games) {           // finals the schedule hasn't counted yet
+      if (!g.recordPending || !g.completed || !(g.home.winner || g.away.winner)) continue;
+      for (const s of [g.home, g.away]) {
+        const r = map[s.id]; if (!r) continue;
+        s.winner ? r.w++ : r.l++;
+        if (g.conf && !NCAA) s.winner ? r.cw++ : r.cl++;
+      }
+    }
+    return map;
+  }
+  function winChance(g, id) {
+    const home = g.home.id === id;
+    if (g.state === "in" && g.live) return { p: home ? g.live.home : g.live.away, live: true };
+    const s = home ? g.home : g.away;
+    return { p: s.prob != null ? s.prob : null, live: false };
+  }
+  // a team's windows: results from the last 7 days (oldest first) and games still to play
+  function windows(t) {
+    const past = (t.past || []).map((id) => GAME[id]).filter(Boolean).reverse();
+    const next = (t.next || []).map((id) => GAME[id]).filter(Boolean);
+    return { results: [...past, ...next.filter(done)], upcoming: next.filter((g) => !done(g)) };
+  }
+  const nameOf = (s) => s.short || s.abbr || "TBD";
+  const isTbd = (s) => !/^\d+$/.test(String(s.id || "")) || s.abbr === "TBD";
+  const eventNote = (g) => (g.note && !/^[A-Z ]+:/.test(g.note) ? g.note : null);
+  const pct = (w, l) => (w + l ? w / (w + l) : 0);
+
+  // ---------- team colors ----------
+  const GRAY = "#8a8d8f";
+  const rgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+  const lum = (h) => { const c = rgb(h); if (!c) return 0.5; const f = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2]; };
+  const cdist = (a, b) => { const x = rgb(a), y = rgb(b); if (!x || !y) return 999; return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); };
+  // near-black disappears in dark mode and near-white in light mode, so fall back to the secondary color, then gray
+  const usable = (h) => { if (!rgb(h)) return false; const L = lum(h); return L > 0.02 && L < 0.8; };
+  const teamColor = (t) => (t && usable(t.color) ? t.color : t && usable(t.alt) ? t.alt : GRAY);
+  function pairColors(g) {
+    let a = teamColor(g.away), h = teamColor(g.home);
+    if (cdist(a, h) < 60) {                      // near-identical colors: try a secondary, else drop the away side to gray
+      const alt = (s) => (usable(s.alt) && lum(s.alt) > 0.04 ? s.alt : null);
+      const aa = alt(g.away), ha = alt(g.home);
+      if (aa && aa !== a && cdist(aa, h) >= 60) a = aa;
+      else if (ha && ha !== h && cdist(a, ha) >= 60) h = ha;
+      else a = GRAY;
+    }
+    return [a, h];
+  }
+  const textOn = (hex) => (lum(hex) > 0.36 ? "#111111" : "#ffffff");
+  const chipEl = (t) => { const c = el("span", "chip"); c.style.background = teamColor(t); return c; };
+
+  // ---------- formatting ----------
+  const fmtDay = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const fmtDayET = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "America/New_York" });
+  const fmtTime = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+  const fmtWdTime = new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+  const fmtWd = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+  const fmtMD = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+  const fmtStamp = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const fmtPollDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  const dayLabel = (g) => (g.timeValid ? fmtDay : fmtDayET).format(new Date(g.date)); // TBA games sit at midnight ET
+  const dayKey = (g) => { const d = new Date(g.date); return g.timeValid ? d.toLocaleDateString("en-CA") : d.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); };
+  const kickoff = (g) => (g.timeValid ? fmtWdTime.format(new Date(g.date)) : fmtDayET.format(new Date(g.date)) + ", time TBA");
+  // short day for a pip: Live / Today / weekday within 6 days / "Dec 9"
+  function dayShort(g) {
+    if (g.state === "in") return "Live";
+    const today = new Date().toLocaleDateString("en-CA");
+    if (dayKey(g) === today) return "Today";
+    return Math.abs(new Date(g.date) - Date.now()) < 6 * DAY ? fmtWd.format(new Date(g.date)) : fmtMD.format(new Date(g.date));
+  }
+  const pctTxt = (p) => (p == null ? "—" : (p >= 99.5 ? ">99" : p <= 0.5 ? "<1" : Math.round(p)) + "%");
+  const finalScore = (a, b) => `${Math.max(a ?? 0, b ?? 0)}-${Math.min(a ?? 0, b ?? 0)}`;   // winner's score first, like ESPN
+  // color a win chance (0-100) on a red -> yellow -> green gradient
+  const heat = (e, p) => {
+    if (p != null && Number.isFinite(p)) { e.style.setProperty("--h", Math.round(Math.max(0, Math.min(100, p)) * 1.2)); e.classList.add("heat"); }
+    return e;
+  };
+  const half = (n) => ["", "1st", "2nd"][n] || (n > 2 ? `OT${n > 3 ? n - 2 : ""}` : "");
+  const projRec = (w, l) => { if (w == null || l == null) return null; const tot = Math.round(w + l), pw = Math.round(w); return `${pw}-${tot - pw}`; };
+
+  // ---------- render ----------
+  function render() {
+    GAME = Object.fromEntries(data.games.map((g) => [g.id, g]));
+    if (!data.polls[pollType]) pollType = data.poll;
+    const p = poll();
+    RANK = p ? Object.fromEntries(p.ranks.map((r) => [r.id, r])) : {};
+    const recs = records();
+    let list;
+    if (NCAA) {
+      list = p.ranks.slice(0, 15).filter((r) => recs[r.id] && !recs[r.id].light).map((r) => ({ ...recs[r.id], rank: r.rank, prev: r.prev }));
+      renderNext(p.ranks.slice(15, 25).filter((r) => recs[r.id]).map((r) => ({ ...recs[r.id], rank: r.rank, prev: r.prev })), p);
+    } else {
+      const confStarted = data.teams.some((t) => (t.cw || 0) + (t.cl || 0) > 0);
+      list = Object.values(recs).filter((t) => !t.light).sort((a, b) =>
+        (confStarted ? pct(b.cw, b.cl) - pct(a.cw, a.cl) || b.cw - a.cw : 0) || pct(b.w, b.l) - pct(a.w, a.l) || b.w - a.w || (a.bpiRank ?? 999) - (b.bpiRank ?? 999));
+      list.confStarted = confStarted;
+    }
+    const tracked = new Set(list.map((t) => t.id));
+    renderPollSwitch();
+    $("main-note").textContent = mainNote(p, list);
+    renderTable(list, p);
+    renderSlate(recs, tracked);
+    $("footer-updated").textContent = `Data from ${fmtStamp.format(new Date(data.updated))}.`;
+    updatePill();
+  }
+
+  function mainNote(p, list) {
+    const windowsTxt = "Last 7 days shows every result; Next up shows every game in the next 7 days or the next three, whichever is more. Win chances come from ESPN's BPI matchup predictor before tip-off and its live win probability during games.";
+    if (!NCAA) return (list.confStarted ? "Ordered by Big 12 record, then overall record. " : "Ordered by overall record until Big 12 play starts. ") + windowsTxt;
+    const when = [p && p.week, p && p.date ? fmtPollDate.format(new Date(p.date)) : null].filter(Boolean).join(", ");
+    return `${pollType === "usa" ? "Coaches poll" : "AP poll"}${when ? ` (${when})` : ""}. ${windowsTxt}`;
+  }
+
+  function renderPollSwitch() {
+    if (!NCAA) return;
+    for (const t of ["ap", "usa"]) {
+      const b = $("poll-" + t);
+      b.disabled = !data.polls[t];
+      b.setAttribute("aria-pressed", String(t === pollType));
+    }
+  }
+
+  // rank change since the previous edition of the same poll
+  function moveEl(r, cls = "tsub move") {
+    const e = el("span", cls);
+    if (!(r.prev > 0)) { e.classList.add("up"); e.textContent = "New this week"; e.title = "Unranked last week"; return e; }
+    const d = r.prev - r.rank;
+    if (!d) { e.textContent = "Same as last week"; return e; }
+    e.classList.add(d > 0 ? "up" : "down");
+    const arrow = el("span", null, d > 0 ? "▲" : "▼"); arrow.setAttribute("aria-hidden", "true");
+    e.append(el("span", "sr", d > 0 ? "Up " : "Down "), arrow, document.createTextNode(`${Math.abs(d)} · was ${r.prev}`));
+    e.title = `${d > 0 ? "Up" : "Down"} ${Math.abs(d)} from No. ${r.prev} last week`;
+    return e;
+  }
+
+  // a team's most recent final: the schedule's, unless a just-finished game it hasn't counted yet is newer
+  function lastGame(t) {
+    let L = t.last || null;
+    for (const g of data.games) {
+      if (!g.recordPending || !g.completed || !(g.home.winner || g.away.winner)) continue;
+      const home = g.home.id === t.id; if (!home && g.away.id !== t.id) continue;
+      if (L && new Date(L.date) >= new Date(g.date)) continue;
+      const me = home ? g.home : g.away, op = home ? g.away : g.home;
+      L = { date: g.date, id: op.id, abbr: op.abbr, name: op.short, at: home || g.neutral ? "vs" : "@", pf: me.score, pa: op.score, w: me.winner };
+    }
+    return L;
+  }
+  function lastEl(t, withDate) {
+    const L = lastGame(t); if (!L) return null;
+    const e = el("div", "last");
+    e.append(el("span", "res " + (L.w ? "w" : "l"), L.w ? "W" : "L"), el("b", "num", finalScore(L.pf, L.pa)),
+      document.createTextNode(` ${L.at} ${L.abbr || L.name}${withDate ? " · " + fmtMD.format(new Date(L.date)) : ""}`));
+    e.title = `Last game: ${L.w ? "beat" : "lost to"} ${L.name} ${L.pf}-${L.pa}${L.at === "@" ? " on the road" : ""}, ${fmtDay.format(new Date(L.date))}`;
+    return e;
+  }
+
+  function oppLabel(g, id) {
+    const home = g.home.id === id, op = home ? g.away : g.home, rk = rankOf(op.id);
+    return { op, at: home || g.neutral ? "vs" : "@", rk };
+  }
+  function resultPip(g, id) {
+    const home = g.home.id === id, me = home ? g.home : g.away;
+    const { op, at, rk } = oppLabel(g, id);
+    const pip = el("div", "pip res " + (me.winner ? "w" : "l"));
+    pip.append(el("span", "opp", `${at} ${rk ? "#" + rk + " " : ""}${op.abbr || "TBD"}`),
+      el("span", "p num", `${me.winner ? "W" : "L"} ${finalScore(me.score, op.score)}`), el("span", "day", dayShort(g)));
+    pip.title = [eventNote(g), `${me.winner ? "Beat" : "Lost to"} ${rk ? "No. " + rk + " " : ""}${nameOf(op)} ${me.score}-${op.score}${at === "@" ? " on the road" : g.neutral ? " (neutral site)" : ""}`, dayLabel(g)].filter(Boolean).join(" · ");
+    return pip;
+  }
+  function nextPip(g, id) {
+    const { op, at, rk } = oppLabel(g, id), c = winChance(g, id);
+    const pip = el("div", "pip" + (c.live ? " live" : c.p >= 50 ? " fav" : ""));
+    pip.append(el("span", "opp", `${at} ${rk ? "#" + rk + " " : ""}${op.abbr || "TBD"}`), el("span", "p num", pctTxt(c.p)), el("span", "day", dayShort(g)));
+    pip.title = [eventNote(g), `${at === "@" ? "at" : "vs"} ${rk ? "No. " + rk + " " : ""}${nameOf(op)}${g.neutral ? " (neutral site)" : ""}`,
+      c.live ? `live, ${g.detail || ""}` : kickoff(g), g.est && !c.live ? "win chance estimated from BPI" : null, isTbd(op) ? "opponent not set yet" : null].filter(Boolean).join(" · ");
+    heat(pip, c.p);
+    return pip;
+  }
+
+  function renderTable(list, p) {
+    const body = $("team-body"); body.replaceChildren();
+    const showMove = NCAA && p && p.ranks.some((r) => r.prev > 0);   // the first poll of the season has nothing to compare against
+    for (const r of list) {
+      const { results, upcoming } = windows(r);
+      const tr = el("tr"); tr.id = "row-" + r.abbr;
+
+      const tdTeam = el("td"), team = el("div", "team"), box = el("div");
+      box.append(el("span", "tname", r.short));
+      if (NCAA) { if (showMove) box.append(moveEl(r)); }
+      else { const rk = rankOf(r.id); if (rk) { const s = el("span", "tsub", `No. ${rk} ${data.poll === "usa" ? "Coaches" : "AP"}`); s.title = `Ranked No. ${rk} in the ${data.poll === "usa" ? "Coaches" : "AP"} poll`; box.append(s); } }
+      if (NCAA) team.append(el("span", "rank num", r.rank));
+      team.append(chipEl(r), box); tdTeam.append(team);
+
+      const tdRec = el("td");
+      if (NCAA) {
+        tdRec.append(el("div", "rec num", `${r.w}-${r.l}`));
+        const conf = r.conf ? `${r.cw ?? 0}-${r.cl ?? 0} ${r.conf}` : r.standing;
+        if (conf) tdRec.append(el("span", "tsub", conf));
+      } else if (list.confStarted) {
+        const rec = el("div", "rec num", `${r.cw}-${r.cl}`); rec.append(el("small", null, `Big 12 · ${r.w}-${r.l}`)); tdRec.append(rec);
+      } else {
+        const rec = el("div", "rec num", `${r.w}-${r.l}`); rec.append(el("small", null, `${r.cw}-${r.cl} Big 12`)); tdRec.append(rec);
+      }
+
+      const tdPast = el("td"); tdPast.dataset.label = "Last 7 days";
+      const pp = el("div", "pips");
+      for (const g of results) pp.append(resultPip(g, r.id));
+      if (!results.length) { pp.append(el("span", "none", "No games in the last 7 days")); const lg = lastEl(r, true); if (lg) { lg.prepend(document.createTextNode("Last: ")); pp.append(lg); } }
+      tdPast.append(pp);
+
+      const tdNext = el("td"); tdNext.dataset.label = "Next up · win chance";
+      const np = el("div", "pips");
+      for (const g of upcoming) np.append(nextPip(g, r.id));
+      if (!upcoming.length) np.append(el("span", "none", "No games scheduled"));
+      tdNext.append(np);
+
+      tr.append(tdTeam, tdRec, tdPast, tdNext, outlookTd(r)); body.append(tr);
+    }
+    if (!list.length) { const tr = el("tr"), td = el("td", "muted", "No teams to show yet."); td.colSpan = 5; tr.append(td); body.append(tr); }
+  }
+
+  function outlookTd(r) {
+    const td = el("td", "outl"); td.dataset.label = "ESPN outlook";
+    const pr = projRec(r.projW, r.projL);
+    td.append(el("div", "big num", pr || "—"));
+    if (!pr) { td.append(el("small", null, "No BPI projection yet")); return td; }
+    const confName = NCAA ? r.conf : "Big 12";
+    const pc = projRec(r.projCW, r.projCL);
+    td.append(el("small", null, `projected${pc && confName ? ` · ${pc} ${confName}` : ""}`));
+    if (r.confChance != null && confName) {
+      const s = el("small"); s.append(el("b", "num", pctTxt(r.confChance)), document.createTextNode(` to win the ${confName}`));
+      s.title = `Chance to win or share the ${confName} regular-season title (ESPN BPI)`; td.append(s);
+    }
+    const res = [r.bpiRank != null ? `BPI #${r.bpiRank}` : null, r.sor != null ? `SOR #${r.sor}` : null,
+      r.top50W != null ? `${r.top50W}-${r.top50L ?? 0} vs top 50` : null].filter(Boolean).join(" · ");
+    if (res) { const s = el("small", null, res); s.title = "BPI rank: how good ESPN rates the team. SOR: strength of record, how impressive its results are for its schedule. Top 50: record against BPI's top 50."; td.append(s); }
+    return td;
+  }
+
+  // national view, ranked 16-25: record, last result, next game, BPI rank
+  function renderNext(list, p) {
+    const box = $("next"), wrap = $("next-list"); wrap.replaceChildren();
+    box.hidden = !NCAA || !list.length;
+    if (box.hidden) return;
+    const showMove = p.ranks.some((r) => r.prev > 0);
+    for (const r of list) {
+      const row = el("div", "next-row");
+      const team = el("div", "team"), info = el("div");
+      info.append(el("span", "tname", r.short));
+      const sub = el("span", "tsub", [`${r.w}-${r.l}`, r.conf].filter(Boolean).join(" · "));
+      if (showMove) sub.append(document.createTextNode(" · "), moveEl(r, "move"));
+      info.append(sub);
+      team.append(el("span", "rank num", r.rank), chipEl(r), info);
+
+      const wkg = el("div", "wkg");
+      const lg = lastEl(r, true); if (lg) wkg.append(lg);
+      const g = (r.next || []).map((id) => GAME[id]).find((x) => x && !done(x));
+      if (g) {
+        const { op, at, rk } = oppLabel(g, r.id), c = winChance(g, r.id), line = el("div");
+        if (g.state === "in") line.append(el("span", "live", "Live"), document.createTextNode(` ${at} ${rk ? "#" + rk + " " : ""}${nameOf(op)} · `));
+        else line.append(document.createTextNode(`Next: ${kickoff(g)} ${at} ${rk ? "#" + rk + " " : ""}${nameOf(op)} · `));
+        line.append(heat(el("b", "heat-t num", pctTxt(c.p)), c.p), document.createTextNode(" to win"));
+        wkg.append(line);
+      } else wkg.append(el("div", null, "No game scheduled"));
+
+      const po = el("div", "po"); po.append(el("b", "num", r.bpiRank != null ? `#${r.bpiRank}` : "—"), el("small", null, "in BPI"));
+      row.append(team, wkg, po); wrap.append(row);
+    }
+    $("next-sum").textContent = `Ranked 16–25 · ${list.length} teams`;
+  }
+
+  // ---------- slate: games coming up, and a collapsible list of the last 7 days ----------
+  function renderSlate(recs, tracked) {
+    const involve = (g) => tracked.has(g.home.id) || tracked.has(g.away.id);
+    const inWindow = new Set();                 // only games inside a shown team's windows
+    for (const id of tracked) { const t = recs[id]; for (const gid of [...(t.past || []), ...(t.next || [])]) inWindow.add(gid); }
+    const pool = data.games.filter((g) => involve(g) && inWindow.has(g.id));
+    const best = (g) => Math.min(rankOf(g.home.id) || 99, rankOf(g.away.id) || 99);
+    const upcoming = pool.filter((g) => !done(g)).sort((a, b) => dayKey(a).localeCompare(dayKey(b)) ||
+      (a.timeValid === b.timeValid ? 0 : a.timeValid ? -1 : 1) || new Date(a.date) - new Date(b.date) || best(a) - best(b));
+    const finals = pool.filter(done).sort((a, b) => dayKey(b).localeCompare(dayKey(a)) || new Date(b.date) - new Date(a.date));
+    fillDays($("slate"), upcoming, recs, tracked, "No games coming up for these teams.");
+    $("recent").hidden = !finals.length;
+    fillDays($("recent-slate"), finals, recs, tracked, "");
+    $("recent-sum").textContent = `Last 7 days · ${finals.length} final${finals.length === 1 ? "" : "s"}`;
+  }
+  function fillDays(box, games, recs, tracked, empty) {
+    box.replaceChildren();
+    if (!games.length) { if (empty) box.append(el("p", "muted", empty)); return; }
+    const groups = new Map();
+    for (const g of games) { const k = dayKey(g); if (!groups.has(k)) groups.set(k, { label: dayLabel(g), games: [] }); groups.get(k).games.push(g); }
+    for (const [k, grp] of groups) {
+      const day = el("div", "day"); day.id = "day-" + k + (box.id === "slate" ? "" : "-r");
+      day.append(el("h3", "day-h", grp.label + (grp.games.every(done) ? " · Final" : "")));
+      const wrap = el("div", "games");
+      for (const g of grp.games) wrap.append(gameCard(g, recs, tracked));
+      day.append(wrap); box.append(day);
+    }
+  }
+
+  function gameCard(g, recs, tracked) {
+    const live = g.state === "in", fin = done(g);
+    const card = el("article", "game" + (live ? " is-live" : ""));
+    const head = el("div", "ghead"), left = el("span", "gleft");
+    if (live) left.append(el("span", "state-live", g.detail || `${half(g.period)} ${g.clock || ""}`));
+    else if (fin) left.append(el("span", "state-final", g.detail || "Final"));
+    else left.append(el("span", null, g.timeValid ? fmtTime.format(new Date(g.date)) : "Time TBA"));
+    const ev = eventNote(g);
+    if (ev) left.append(el("span", "tag", ev));
+    else if (g.conf) left.append(el("span", "tag", "Big 12 game"));
+    else if (NCAA && tracked.has(g.home.id) && tracked.has(g.away.id)) left.append(el("span", "tag", "Top 15 matchup"));
+    head.append(left, el("span", null, g.tv || (fin ? "" : "TV TBA")));
+    card.append(head);
+
+    const pa = live && g.live ? g.live.away : g.away.prob, ph = live && g.live ? g.live.home : g.home.prob;
+    const colors = pairColors(g);
+    for (const [s, p, ci] of [[g.away, pa, 0], [g.home, ph, 1]]) {
+      const cls = ["side"];
+      if (!fin && p != null && p >= 50) cls.push("fav");
+      if (fin && !s.winner) cls.push("loser");
+      if (tracked.has(s.id)) cls.push("tracked");
+      const row = el("div", cls.join(" "));
+      const chip = el("span", "chip"); chip.style.background = colors[ci];
+      const nm = el("span", "nm"), rk = rankOf(s.id);
+      if (rk) nm.append(el("span", "rk num", rk));
+      nm.append(document.createTextNode(nameOf(s)));
+      const r = recs[s.id], rec = r ? `${r.w}-${r.l}` : s.rec;
+      if (rec) nm.append(el("small", "num", rec));
+      const sc = el("span", "sc num", live || fin ? (s.score ?? 0) : "");
+      const wp = el("span", "wp num", fin ? (s.winner ? "W" : "") : pctTxt(p));
+      if (!fin) heat(wp, p);
+      row.append(chip, nm, sc, wp); card.append(row);
+    }
+    if (!fin && pa != null && ph != null) {
+      const bar = el("div", "wpbar");
+      for (const [p, c, s] of [[pa, colors[0], g.away], [ph, colors[1], g.home]]) {
+        const seg = el("i", "num", p >= 24 ? `${s.abbr} ${pctTxt(p)}` : p >= 9 ? pctTxt(p) : "");
+        seg.style.flex = `${Math.max(p, 0.5)} 1 0`; seg.style.background = c; seg.style.color = textOn(c);
+        bar.append(seg);
+      }
+      bar.title = `${nameOf(g.away)} (away) ${pctTxt(pa)} · ${nameOf(g.home)} (home) ${pctTxt(ph)}` + (live ? " · live" : g.est ? " · estimated from BPI" : "");
+      card.append(bar);
+    }
+    const meta = el("div", "meta");
+    if (g.venue) meta.append(el("span", "venue", g.venue + (g.city ? ", " + g.city : "")));
+    if (!fin && g.spread) meta.append(el("span", null, "Line " + g.spread));
+    if (!fin && g.ou != null) meta.append(el("span", null, "O/U " + g.ou));
+    if (live) meta.append(el("span", null, "Live win chance"));
+    else if (!fin && g.est) meta.append(el("span", null, "Win chance estimated from BPI"));   // live games use ESPN's live odds
+    card.append(meta);
+    return card;
+  }
+
+  for (const t of ["ap", "usa"]) $("poll-" + t).addEventListener("click", () => {
+    if (!data || !data.polls[t] || pollType === t) return;
+    pollType = t; store.set("mbb-poll", t); render();
+  });
+
+  function updatePill() {
+    const anyLive = data.games.some((g) => g.state === "in");
+    const pill = $("pill");
+    if (!isLive) { pill.className = "pill snap"; $("pill-text").textContent = "Snapshot · " + fmtStamp.format(new Date(data.updated)); return; }
+    pill.className = "pill" + (anyLive ? " live" : "");
+    const every = curInterval >= 60000 ? Math.round(curInterval / 60000) + " min" : Math.round(curInterval / 1000) + "s";
+    $("pill-text").textContent = (anyLive ? "Games live · " : "Live · ") + "updated " + fmtTime.format(new Date(data.updated)) + " · every " + every;
+  }
+
+  function showNotice(msg) {
+    const n = $("notice"); n.replaceChildren();
+    if (!msg) { n.hidden = true; return; }
+    const span = el("span"); span.append(el("b", null, "Heads up: "), document.createTextNode(msg)); n.append(span);
+    n.hidden = false;
+  }
+
+  // ---------- live data ----------
+  function pickInterval() {
+    const now = Date.now();
+    if (data.games.some((g) => g.state === "in")) return 30000;
+    const soon = data.games.filter((g) => !g.completed && g.timeValid).map((g) => new Date(g.date) - now);
+    if (soon.some((d) => d < 20 * 60000 && d > -4 * 3600000)) return 30000;   // tip-off within 20 min
+    if (soon.some((d) => d < 12 * 3600000 && d > 0)) return 120000;           // game day
+    return 600000;
+  }
+
+  let timer = 0, inFlight = false;
+  async function fetchLive(manual) {
+    if (inFlight) return;
+    inFlight = true;
+    const b = $("refresh");
+    if (manual) { b.disabled = true; b.textContent = "Refreshing…"; }
+    try {
+      const r = await fetch("/api/mbb?view=" + VIEW, { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const next = await r.json();
+      if (!next || !Array.isArray(next.games) || !Array.isArray(next.teams) || !next.polls || (NCAA && !next.polls[next.poll])) throw new Error("bad payload");
+      data = next; isLive = true; showNotice(null); render();
+    } catch (e) {
+      showNotice(isLive ? "Couldn't reach the live feed just now. Showing the last good data." : "Couldn't load live data. It will retry automatically, or press Refresh now.");
+    } finally {
+      inFlight = false;
+      if (manual) { b.disabled = false; b.textContent = "Refresh now"; }
+      schedule();
+    }
+  }
+  function schedule() {
+    clearTimeout(timer);
+    curInterval = data ? pickInterval() : 15000;   // retry quickly until the first load succeeds
+    if (data) updatePill();
+    timer = setTimeout(() => fetchLive(false), curInterval);
+  }
+  // when the tab comes back into view, catch up right away if the data is stale
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && (!data || Date.now() - new Date(data.updated).getTime() > curInterval)) fetchLive(false);
+  });
+  $("refresh").addEventListener("click", () => fetchLive(true));
+
+  fetchLive(false);
+})();
+</script>
+
+</body>
+</html>

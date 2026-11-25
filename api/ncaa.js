@@ -120,24 +120,48 @@ module.exports = async (req, res) => {
       }
     } catch (_) { /* odds stay empty; the page shows dashes and skips the bracket and guide */ }
 
+    // ESPN sometimes types a clinched team's name into a title game's placeholder slot (id "-1", name "Utah")
+    // without linking the team, so the game is missing from that team's schedule. Link such a slot to the one
+    // known team whose name matches exactly; leave it TBD if no team or more than one matches.
+    const byName = new Map();
+    for (const t of Object.values(info)) for (const k of [t.short, t.alias, t.name, t.abbr]) {
+      if (!k) continue;
+      const key = String(k).toLowerCase();
+      if (!byName.has(key)) byName.set(key, new Set());
+      byName.get(key).add(t.id);
+    }
+    const linkSlots = (c) => {
+      for (const x of c.competitors || []) {
+        if (!isTbd(x.id) || !x.team) continue;
+        const keys = [x.team.displayName, x.team.shortDisplayName, x.team.name, x.team.abbreviation].filter((k) => k && k !== "TBD");
+        const ids = new Set(keys.flatMap((k) => [...(byName.get(String(k).toLowerCase()) || [])]));
+        if (ids.size !== 1) continue;
+        const id = [...ids][0], t = info[id];
+        if (c.competitors.some((y) => y.id === id)) continue;
+        x.id = id;
+        x.team = { id, location: t.short, shortDisplayName: t.alias, abbreviation: t.abbr, displayName: t.name };
+      }
+    };
+
     // full schedules for the union of every poll's top 15; everyone ranked or with a real playoff shot is "of interest"
     const detailed = [...new Set(Object.values(polls).flatMap((p) => p.ranks.slice(0, TOP).map((r) => r.id)))];
     const interest = new Set([...detailed, ...Object.values(polls).flatMap((p) => p.ranks.map((r) => r.id)),
       ...Object.keys(odds).filter((id) => (odds[id].playoff || 0) >= CONTENDER_MIN)]);
 
-    // this week's scoreboard (every FBS game); once it's all final, also look at next week
-    const boards = board ? [board] : [];
+    // this week's scoreboard (every FBS game) and next week's. Once this week is all final, next week counts as
+    // this week; before that, next week only fills in games missing from a top team's schedule (see linkSlots).
     const events = (b) => (b && b.events) || [];
-    if (board && events(board).length && events(board).every((e) => e.competitions[0].status.type.completed) && board.week) {
-      const type = (board.season && board.season.type) || 2;
-      const nxt = await getJSON(`${BASE}/scoreboard?groups=80&limit=300&seasontype=${type}&week=${board.week.number + 1}`).catch(() => null);
-      if (nxt) boards.push(nxt);
-    }
+    const allFinal = !!board && events(board).length > 0 && events(board).every((e) => e.competitions[0].status.type.completed);
+    const nextBoard = board && board.week
+      ? getJSON(`${BASE}/scoreboard?groups=80&limit=300&seasontype=${(board.season && board.season.type) || 2}&week=${board.week.number + 1}`).catch(() => null)
+      : Promise.resolve(null);
 
-    const scheds = await Promise.all(detailed.map((id) => Promise.all([
+    const [scheds, nxt] = await Promise.all([Promise.all(detailed.map((id) => Promise.all([
       getJSON(`${BASE}/teams/${id}/schedule?season=${season}`),
       getJSON(`${BASE}/teams/${id}/schedule?season=${season}&seasontype=3`).catch(() => ({ events: [] })),
-    ])));
+    ]))), nextBoard]);
+    const boards = board ? [board] : [];
+    if (nxt && allFinal) boards.push(nxt);
 
     const gameMap = new Map(); // event id -> { e, c, wk }
     const records = {};
@@ -165,6 +189,7 @@ module.exports = async (req, res) => {
     const weekIds = new Set();
     for (const b of boards) for (const e of events(b)) {
       const c = e.competitions && e.competitions[0]; if (!c) continue;
+      linkSlots(c);
       weekIds.add(e.id);
       for (const x of c.competitors) {
         const tot = (x.records || []).find((r) => r.type === "total");
@@ -172,6 +197,11 @@ module.exports = async (req, res) => {
         if (tot && info[x.id]) info[x.id].rec = tot.summary; // the scoreboard's record is the freshest
       }
       if (c.competitors.some((x) => interest.has(x.id)) && !gameMap.has(e.id)) gameMap.set(e.id, { e, c });
+    }
+    if (nxt && !allFinal) for (const e of events(nxt)) {   // e.g. a title game ESPN hasn't put on the team's schedule yet
+      const c = e.competitions && e.competitions[0]; if (!c || gameMap.has(e.id)) continue;
+      linkSlots(c);
+      if (c.competitors.some((x) => records[x.id])) gameMap.set(e.id, { e, c });
     }
 
     // contenders on a bye who aren't ranked: their schedule feed names their conference

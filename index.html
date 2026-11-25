@@ -50,7 +50,8 @@ h2 { font-size: 22px; text-transform: uppercase; letter-spacing: .04em; }
 .num { font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
 /* page switcher (same on both pages) */
-.sitenav { justify-self: start; display: inline-flex; margin-bottom: -12px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.navs { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-bottom: -12px; }   /* sport + page switchers */
+.sitenav { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
 .sitenav a { padding: 7px 18px; font: 600 13px var(--body); letter-spacing: .02em; color: var(--ink); text-decoration: none; }
 .sitenav a + a { border-left: 1px solid var(--line); }
 .sitenav a:hover:not([aria-current]) { background: var(--accent-soft); }
@@ -355,10 +356,16 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 <body>
 
 <div class="wrap">
-  <nav class="sitenav" aria-label="Pages">
-    <a href="./" aria-current="page">Big 12</a>
-    <a href="ncaa.html">NCAA</a>
-  </nav>
+  <div class="navs">
+    <nav class="sitenav" aria-label="Sport">
+      <a href="./" aria-current="page">Football</a>
+      <a href="mbb.html">Men's Basketball</a>
+    </nav>
+    <nav class="sitenav" aria-label="Pages">
+      <a href="./" aria-current="page">Big 12</a>
+      <a href="ncaa.html">NCAA</a>
+    </nav>
+  </div>
 
   <header class="top">
     <div>

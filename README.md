@@ -1,14 +1,15 @@
 # Big 12 Title Race
 
-A live, unofficial fan tracker for the Big 12 football race: every team still in the running for the title game or the playoff, their remaining games with ESPN win chances, live scores, projected records, a title-game simulator that applies the official Big 12 tiebreakers, and College Football Playoff paths. A second page tracks the national top 15.
+A live, unofficial fan tracker for the Big 12 football race: every team still in the running for the title game or the playoff, their remaining games with ESPN win chances, live scores, projected records, a title-game simulator that applies the official Big 12 tiebreakers, and College Football Playoff paths. A second page tracks the national top 15, and a men's basketball page covers the Big 12 and the national top 15.
 
-Live site: https://big12-live-odds.vercel.app (Top 15: `/ncaa.html`, or the **NCAA** tab at the top of the page)
+Live site: https://big12-live-odds.vercel.app (Top 15: `/ncaa.html`; men's basketball: `/mbb.html` and `/mbb.html?view=ncaa`; or use the **Football / Men's Basketball** and **Big 12 / NCAA** switches at the top of every page)
 
 ## How it works
 
 ```
 browser (index.html)  ──fetch──▶  /api/big12  (Vercel function)  ──▶  ESPN public JSON feeds
 browser (ncaa.html)   ──fetch──▶  /api/ncaa   (Vercel function)  ──▶  ESPN public JSON feeds
+browser (mbb.html)    ──fetch──▶  /api/mbb    (Vercel function)  ──▶  ESPN public JSON feeds
 ```
 
 - **`api/big12.js`** is a Vercel serverless function. On each request it pulls, in parallel:
@@ -20,7 +21,9 @@ browser (ncaa.html)   ──fetch──▶  /api/ncaa   (Vercel function)  ─�
 
 - **`index.html`** is the whole front end: plain HTML, CSS and JavaScript, no build step and no dependencies. It polls `/api/big12` every 30 seconds while games are live or about to kick off, every 2 minutes on game days, and every 10 minutes otherwise.
 
-- **`api/ncaa.js`** and **`ncaa.html`** are the Top 15 page, built the same way. The function pulls ESPN's rankings (CFP and AP), the schedules of every team in either poll's top 15 (regular season and postseason), this week's FBS scoreboard, a game summary for every unplayed game involving a ranked team or playoff contender, and ESPN FPI, with the same 20-second edge cache.
+- **`api/ncaa.js`** and **`ncaa.html`** are the Top 15 page, built the same way. Conference title games show as "vs TBD" for a team that has clinched before its opponent is set. ESPN sometimes fills a title-game slot with just the team's name and no team link (Utah in the 2026 Big 12 Championship), which keeps the game off that team's schedule. The function matches such a slot to the one team with that exact name and picks the game up from next week's scoreboard. The function pulls ESPN's rankings (CFP and AP), the schedules of every team in either poll's top 15 (regular season and postseason), this week's and next week's FBS scoreboards, a game summary for every unplayed game involving a ranked team or playoff contender, and ESPN FPI, with the same 20-second edge cache.
+
+- **`api/mbb.js`** and **`mbb.html`** are the men's basketball page (one page, two views: `?view=big12`, the default, and `?view=ncaa`). The function pulls ESPN's men's basketball rankings (AP and Coaches), ESPN BPI, the schedules of the tracked teams, and a game summary for each upcoming game in their windows, with the same 20-second edge cache.
 
 ## What's on the page
 
@@ -55,6 +58,15 @@ browser (ncaa.html)   ──fetch──▶  /api/ncaa   (Vercel function)  ─�
 - Contenders are teams with an ESPN playoff chance of at least 0.5%, plus every ranked team. Each game is judged on its own with every other game left to the odds.
 - When ESPN posts no matchup predictor for a game, the win chance is estimated from FPI (2.5-point home edge, SD 13.5) and flagged on the page. Games against an opponent not set yet get no odds.
 
+## The men's basketball page
+
+Basketball works differently from football: every team plays in its conference tournament and the NCAA tournament has 68 teams, so those are left out for now. The page tracks what each team did in the last week and who it plays next.
+
+- **Two views**: **Big 12** (all 16 teams, ordered by Big 12 record once conference play starts, overall record before that) and **NCAA** (the top 15 of the AP poll or the Coaches poll, switchable, plus a collapsed "Ranked 16–25" list with each team's last result, next game and BPI rank).
+- **Each team's row**: record; **Last 7 days**, every result from the past week (W/L, score, opponent and its ranking); **Next up**, every game in the next 7 days or the next three, whichever is more, with ESPN's win chance (BPI matchup predictor before tip-off, live win probability during games); and the **ESPN outlook**: BPI's projected final record and conference record, chance to win (or share) the conference regular-season title, BPI rank, strength-of-record rank, and record against BPI's top 50.
+- **Coming up**: every game in those windows, by day, in the same cards as the football slate; the past week's finals sit in a collapsible "Last 7 days" list.
+- A Big 12 conference game is a game between two Big 12 teams on a campus; neutral-site event games (like the Players Era) don't count toward the Big 12 standings. When ESPN posts no matchup predictor, the win chance is estimated from BPI (3.5-point home edge, SD 11) and flagged.
+
 ## Model notes and assumptions
 
 **Tiebreakers** follow the Big 12's 2024+ 16-team policy ([PDF](https://big12sports.com/documents/2025/11/4//Big_12_Football_2024_Tiebreaker_Policy.pdf)). Where the policy is silent:
@@ -82,7 +94,7 @@ Local development:
 npx vercel dev
 ```
 
-then open http://localhost:3000 (Big 12) or http://localhost:3000/ncaa.html (Top 15).
+then open http://localhost:3000 (Big 12) or http://localhost:3000/ncaa.html (Top 15); men's basketball is at http://localhost:3000/mbb.html and http://localhost:3000/mbb.html?view=ncaa.
 
 ## Data and disclaimer
 
