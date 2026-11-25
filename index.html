@@ -119,6 +119,15 @@ th { font: 600 11px var(--body); text-transform: uppercase; letter-spacing: .06e
 .games { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .game { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0; }
 .game.is-live { border-color: var(--live); box-shadow: 0 0 0 1px var(--live) inset; }
+/* game pips link to their card in the slate; the card flashes when you land on it */
+a.pip { color: inherit; text-decoration: none; cursor: pointer; }
+a.pip:hover { border-color: var(--accent); }
+a.pip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.game { scroll-margin: 16px; }
+.game:focus { outline: none; }
+.game.flash { animation: flash 3s ease-out; }
+@keyframes flash { 0%, 50% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 3px transparent; } }
+@media (prefers-reduced-motion: reduce) { .game.flash { animation: none; box-shadow: 0 0 0 3px var(--accent); } }
 .ghead { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
 .ghead .state-live { color: var(--live); }
 .ghead .state-final { color: var(--ink); }
@@ -726,7 +735,7 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
       for (const g of games) {
         const home = g.home.id === r.id; const opp = home ? g.away : g.home;
         const c = winChance(g, r.id);
-        const pip = el("div", "pip" + (c.live ? " live" : c.p >= 50 ? " fav" : ""));
+        const pip = el("a", "pip" + (c.live ? " live" : c.p >= 50 ? " fav" : "")); pip.href = "#game-" + g.id;
         pip.title = `${home ? "vs" : "at"} ${opp.short}`;
         pip.append(el("span", "opp", `${home ? "vs" : "@"} ${opp.abbr}`), el("span", "p num", pctTxt(c.p)));
         heat(pip, c.p);
@@ -853,6 +862,22 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     card.append(meta);
     return card;
   }
+
+  // a game pip in the race table jumps to that game's card in the slate and flashes it
+  let flashTimer = 0;
+  function jumpToGame(e) {
+    const a = e.target.closest("a.pip[href^='#game-']"); if (!a) return;
+    e.preventDefault();
+    const card = document.getElementById(a.getAttribute("href").slice(1)); if (!card) return;
+    const det = card.closest("details"); if (det && !det.open) det.open = true;
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    card.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    document.querySelectorAll(".game.flash").forEach((x) => x.classList.remove("flash"));
+    void card.offsetWidth; card.classList.add("flash");
+    clearTimeout(flashTimer); flashTimer = setTimeout(() => card.classList.remove("flash"), 3000);
+    card.tabIndex = -1; card.focus({ preventScroll: true });
+  }
+  $("race-body").addEventListener("click", jumpToGame);
 
   function updatePill() {
     const anyLive = data.games.some((g) => g.state === "in");

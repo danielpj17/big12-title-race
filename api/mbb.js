@@ -1,4 +1,4 @@
-// Aggregates ESPN men's college basketball data for mbb.html (Big 12 view and national top-15 view).
+// Aggregates ESPN men's college basketball data for mbb.html (Big 12 view and national top-25 view).
 // GET /api/mbb?view=big12|ncaa -> { updated, season, view, source, poll, polls, teams[], games[] }
 // For each tracked team: every final from the last 7 days, plus every game in the next 7 days or its next 3,
 // whichever is more. Conference and NCAA tournaments are left out for now.
@@ -6,7 +6,7 @@ const BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-coll
 // Big 12 (same ESPN school ids as football)
 const IDS = [254, 2641, 12, 252, 248, 239, 197, 9, 2116, 2132, 277, 66, 2628, 2306, 38, 2305];
 const BIG12 = new Set(IDS.map(String));
-const TOP = 15;                                    // national view: union of both polls' top 15
+const TOP = 25;                                    // national view: union of both polls' top 25
 const DAY = 24 * 3600 * 1000;
 const PAST_MS = 7 * DAY, NEXT_MS = 7 * DAY, NEXT_MIN = 3;
 const HCA = 3.5, BPI_SD = 11;                      // fallback win chance from BPI when ESPN posts no predictor
@@ -111,20 +111,16 @@ module.exports = async (req, res) => {
       }
     } catch (_) { /* no BPI: the page shows dashes */ }
 
-    // full windows for the Big 12 (all 16) or the union of both polls' top 15; national view also gets
-    // ranks 16-25 "light": just the last result and next game
+    // the Big 12 (all 16) or the union of both polls' top 25
     const ids = view === "big12" ? IDS.map(String)
       : [...new Set(Object.values(polls).flatMap((p) => p.ranks.slice(0, TOP).map((r) => r.id)))];
-    const extra = view === "big12" ? []
-      : [...new Set(Object.values(polls).flatMap((p) => p.ranks.slice(TOP, 25).map((r) => r.id)))].filter((id) => !ids.includes(id));
-    const all = [...ids, ...extra];
-    const scheds = await Promise.all(all.map((id) => getJSON(`${BASE}/teams/${id}/schedule?season=${season}`)));
+    const scheds = await Promise.all(ids.map((id) => getJSON(`${BASE}/teams/${id}/schedule?season=${season}`)));
 
     const gameMap = new Map();   // event id -> { e, c }
     const teams = [];
     const nowMs = now.getTime();
     scheds.forEach((s, i) => {
-      const id = all[i], light = i >= ids.length;
+      const id = ids[i];
       let w = 0, l = 0, cw = 0, cl = 0, last = null;
       const past = [], upcoming = [];
       for (const e of s.events || []) {
@@ -148,14 +144,13 @@ module.exports = async (req, res) => {
       }
       upcoming.sort((a, b) => a.t - b.t);
       const inWeek = upcoming.filter((x) => x.t - nowMs <= NEXT_MS);
-      const next = light ? upcoming.slice(0, 1) : inWeek.length >= NEXT_MIN ? inWeek : upcoming.slice(0, NEXT_MIN);
-      if (light) past.length = 0;
+      const next = inWeek.length >= NEXT_MIN ? inWeek : upcoming.slice(0, NEXT_MIN);
       for (const x of [...past, ...next]) if (!gameMap.has(x.e.id)) gameMap.set(x.e.id, x);
 
       const tm = s.team || {}, b = bpi[id] || {};
       const standing = tm.standingSummary || null;
       teams.push({
-        id, light: light || null, short: tm.location, abbr: tm.abbreviation, name: tm.displayName,
+        id, short: tm.location, abbr: tm.abbreviation, name: tm.displayName,
         color: tm.color ? "#" + tm.color : null, alt: (colors[id] && colors[id].alt) || null,
         w, l,
         // Big 12 view counts conference games itself; elsewhere BPI's conference record (opponents' conferences aren't in the schedule)
